@@ -90,6 +90,7 @@ export default function App() {
           <Route path="/school-admin/students" element={<StudentsPage />} />
           <Route path="/school-admin/staff" element={<StaffPage />} />
           <Route path="/school-admin/academic-setup" element={<AcademicSetupPage />} />
+      <Route path="/school-admin/lesson-notes" element={<LessonNotesPage />} />
           <Route path="/school-admin/admissions" element={<AdmissionsPage />} />
           <Route path="/school-admin/publish-results" element={<PublishResultsPage />} />
           <Route path="/school-admin/portal-access" element={<PortalAccessPage />} />
@@ -120,7 +121,6 @@ export default function App() {
       <Route element={<ProtectedRoute allowed={ALL_ROLES} />}>
         <Route element={<AppLayout />}>
           <Route path="/teacher/lesson-notes" element={<LessonNotesPage />} />
-      <Route path="/school-admin/lesson-notes" element={<LessonNotesPage />} />
         </Route>
       </Route>
 
@@ -154,6 +154,8 @@ export default function App() {
     </Routes>
   );
 }
+
+
 
 
 
