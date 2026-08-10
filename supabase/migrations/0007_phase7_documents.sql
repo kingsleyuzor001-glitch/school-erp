@@ -4,7 +4,7 @@
 -- (logo, signature, stamp) that generated documents draw from.
 --
 -- Gap found and fixed: `schools` has had a write policy since Phase 1
--- restricted to `auth.is_super_admin()` ONLY — meaning no school_owner
+-- restricted to `public.is_super_admin()` ONLY — meaning no school_owner
 -- or school_admin could ever update their own school's row, including
 -- branding fields. RLS can't cleanly restrict an UPDATE to a subset of
 -- columns (a row policy is all-or-nothing for the row), so rather than
@@ -21,10 +21,10 @@ create or replace function public.update_school_branding(
 ) returns void
 language plpgsql security definer set search_path = public as $$
 declare
-  v_school_id uuid := auth.school_id();
+  v_school_id uuid := public.current_school_id();
 begin
   if v_school_id is null then raise exception 'No school context'; end if;
-  if auth.role_name() not in ('school_owner','school_admin') then raise exception 'Not authorized'; end if;
+  if public.current_role_name() not in ('school_owner','school_admin') then raise exception 'Not authorized'; end if;
 
   update schools set
     logo_url = coalesce(p_logo_url, logo_url),
@@ -61,17 +61,17 @@ create policy school_assets_public_read on storage.objects for select using (buc
 
 create policy school_assets_write on storage.objects for insert with check (
   bucket_id = 'school-assets' and (
-    auth.is_super_admin() or (
-      (storage.foldername(name))[1] = auth.school_id()::text
-      and auth.role_name() in ('school_owner','school_admin')
+    public.is_super_admin() or (
+      (storage.foldername(name))[1] = public.current_school_id()::text
+      and public.current_role_name() in ('school_owner','school_admin')
     )
   )
 );
 create policy school_assets_delete on storage.objects for delete using (
   bucket_id = 'school-assets' and (
-    auth.is_super_admin() or (
-      (storage.foldername(name))[1] = auth.school_id()::text
-      and auth.role_name() in ('school_owner','school_admin')
+    public.is_super_admin() or (
+      (storage.foldername(name))[1] = public.current_school_id()::text
+      and public.current_role_name() in ('school_owner','school_admin')
     )
   )
 );

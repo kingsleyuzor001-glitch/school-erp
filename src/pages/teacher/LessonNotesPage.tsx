@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { listLessonNotes, uploadLessonNote, LessonNote } from "../../services/lessonNotes";
-import { listMyClasses } from "../../services/attendance";
-import { listSubjects, listSessions, listTerms } from "../../services/academic";
+import { listClasses, listSubjects } from "../../services/academic";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 
@@ -11,17 +10,17 @@ export default function LessonNotesPage() {
   const [notes, setNotes] = useState<LessonNote[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [terms, setTerms] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
-    const [n, c, sub, sess, t] = await Promise.all([
-      listLessonNotes(), listMyClasses(), listSubjects(), listSessions(), listTerms()
-    ]);
-    setNotes(n); setClasses(c); setSubjects(sub); setSessions(sess); setTerms(t);
+    // Classes/subjects are platform-wide now (Phase 10) — every viewer
+    // sees the same list, and the uploader (super admin) isn't
+    // "teaching" any class, so this uses the full list, not
+    // a teacher-scoped one.
+    const [n, c, sub] = await Promise.all([listLessonNotes(), listClasses(), listSubjects()]);
+    setNotes(n); setClasses(c); setSubjects(sub);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -31,16 +30,16 @@ export default function LessonNotesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-xl font-bold">Lesson Notes</h1>
-          <p className="text-sm text-slate-500">Organized by class, subject, and week.</p>
+          <p className="text-sm text-slate-500">Shared platform-wide, organized by class, subject, and week.</p>
         </div>
-        {profile?.role === "teacher" && (
+        {profile?.role === "super_admin" && (
           <Button onClick={() => setShowForm((v) => !v)}>{showForm ? "Close" : "Upload note"}</Button>
         )}
       </div>
 
       {showForm && profile && (
         <UploadForm
-          profile={profile} classes={classes} subjects={subjects} sessions={sessions} terms={terms}
+          teacherId={profile.id} classes={classes} subjects={subjects}
           onUploaded={() => { setShowForm(false); load(); }}
         />
       )}
@@ -61,20 +60,19 @@ export default function LessonNotesPage() {
 }
 
 function UploadForm({
-  profile, classes, subjects, sessions, terms, onUploaded
-}: { profile: { id: string; school_id: string | null }; classes: any[]; subjects: any[]; sessions: any[]; terms: any[]; onUploaded: () => void }) {
-  const [form, setForm] = useState({ classId: "", subjectId: "", sessionId: "", termId: "", week: "1", title: "" });
+  teacherId, classes, subjects, onUploaded
+}: { teacherId: string; classes: any[]; subjects: any[]; onUploaded: () => void }) {
+  const [form, setForm] = useState({ classId: "", subjectId: "", week: "1", title: "" });
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!file || !profile.school_id) return;
+    if (!file) return;
     setSaving(true);
     const { error } = await uploadLessonNote({
-      schoolId: profile.school_id, teacherId: profile.id, classId: form.classId, subjectId: form.subjectId,
-      sessionId: form.sessionId, termId: form.termId, week: Number(form.week), title: form.title, file
+      teacherId, classId: form.classId, subjectId: form.subjectId, week: Number(form.week), title: form.title, file
     });
     setSaving(false);
     if (error) { setError(error); return; }
@@ -92,16 +90,10 @@ function UploadForm({
         <select required value={form.subjectId} onChange={(e) => setForm({ ...form, subjectId: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
           <option value="">Subject…</option>{subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
-        <select required value={form.sessionId} onChange={(e) => setForm({ ...form, sessionId: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-          <option value="">Session…</option>{sessions.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <select required value={form.termId} onChange={(e) => setForm({ ...form, termId: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-          <option value="">Term…</option>{terms.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
         <input type="number" min={1} max={16} value={form.week} onChange={(e) => setForm({ ...form, week: e.target.value })}
           className="rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Week" />
         <input required type="file" accept=".pdf,.doc,.docx,image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2" />
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
         {error && <p className="text-sm text-rose-600 sm:col-span-2">{error}</p>}
         <Button type="submit" loading={saving} className="sm:col-span-2">Upload</Button>
       </form>

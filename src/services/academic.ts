@@ -38,8 +38,8 @@ export async function listClasses(): Promise<SchoolClass[]> {
   if (error) throw error;
   return data as SchoolClass[];
 }
-export async function createClass(schoolId: string, name: string, arm: string) {
-  return supabase.from("classes").insert({ school_id: schoolId, name, arm: arm || null });
+export async function createClass(name: string, arm: string) {
+  return supabase.from("classes").insert({ school_id: null, name, arm: arm || null });
 }
 
 export async function listSubjects(): Promise<Subject[]> {
@@ -47,6 +47,6 @@ export async function listSubjects(): Promise<Subject[]> {
   if (error) throw error;
   return data as Subject[];
 }
-export async function createSubject(schoolId: string, name: string, code: string) {
-  return supabase.from("subjects").insert({ school_id: schoolId, name, code: code || null });
+export async function createSubject(name: string, code: string) {
+  return supabase.from("subjects").insert({ school_id: null, name, code: code || null });
 }

@@ -2,7 +2,7 @@
 -- SCHOOL MANAGEMENT ERP — CORE MULTI-TENANT SCHEMA (Phase 1)
 -- Every tenant-owned table carries school_id and is protected by RLS.
 -- Isolation model: Postgres Row-Level Security keyed off school_id,
--- resolved from the JWT via a SECURITY DEFINER helper (auth.school_id()).
+-- resolved from the JWT via a SECURITY DEFINER helper (public.current_school_id()).
 -- =====================================================================
 
 create extension if not exists "uuid-ossp";
@@ -364,25 +364,25 @@ create table audit_logs (
 -- =====================================================================
 -- RLS HELPER FUNCTIONS
 -- =====================================================================
-create or replace function auth.school_id() returns uuid
+create or replace function public.current_school_id() returns uuid
 language sql stable as $$
   select (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'school_id')::uuid
 $$;
 
-create or replace function auth.role_name() returns text
+create or replace function public.current_role_name() returns text
 language sql stable as $$
-  select (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role')
+  select (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'user_role')
 $$;
 
-create or replace function auth.is_super_admin() returns boolean
+create or replace function public.is_super_admin() returns boolean
 language sql stable as $$
-  select auth.role_name() = 'super_admin'
+  select public.current_role_name() = 'super_admin'
 $$;
 
 -- =====================================================================
 -- ENABLE RLS + TENANT ISOLATION POLICIES
 -- Pattern: super_admin sees all rows across schools; every other role
--- is restricted to rows where school_id = auth.school_id().
+-- is restricted to rows where school_id = public.current_school_id().
 -- =====================================================================
 do $$
 declare
@@ -399,19 +399,19 @@ begin
     execute format('alter table %I enable row level security', t);
     execute format($f$
       create policy tenant_isolation_select on %I
-      for select using (auth.is_super_admin() or school_id = auth.school_id())
+      for select using (public.is_super_admin() or school_id = public.current_school_id())
     $f$, t);
     execute format($f$
       create policy tenant_isolation_write on %I
-      for insert with check (auth.is_super_admin() or school_id = auth.school_id())
+      for insert with check (public.is_super_admin() or school_id = public.current_school_id())
     $f$, t);
     execute format($f$
       create policy tenant_isolation_update on %I
-      for update using (auth.is_super_admin() or school_id = auth.school_id())
+      for update using (public.is_super_admin() or school_id = public.current_school_id())
     $f$, t);
     execute format($f$
       create policy tenant_isolation_delete on %I
-      for delete using (auth.is_super_admin() or school_id = auth.school_id())
+      for delete using (public.is_super_admin() or school_id = public.current_school_id())
     $f$, t);
   end loop;
 end $$;
@@ -419,14 +419,14 @@ end $$;
 -- Schools table: only super_admin manages; school members can read their own row
 alter table schools enable row level security;
 create policy schools_select on schools
-  for select using (auth.is_super_admin() or id = auth.school_id());
+  for select using (public.is_super_admin() or id = public.current_school_id());
 create policy schools_super_admin_write on schools
-  for all using (auth.is_super_admin()) with check (auth.is_super_admin());
+  for all using (public.is_super_admin()) with check (public.is_super_admin());
 
 -- student_guardians (junction, no school_id — inherit via student)
 alter table student_guardians enable row level security;
 create policy student_guardians_isolation on student_guardians
   for all using (
-    auth.is_super_admin() or
-    exists (select 1 from students s where s.id = student_id and s.school_id = auth.school_id())
+    public.is_super_admin() or
+    exists (select 1 from students s where s.id = student_id and s.school_id = public.current_school_id())
   );

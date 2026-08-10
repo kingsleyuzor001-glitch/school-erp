@@ -8,12 +8,11 @@ export interface AttendanceRecord {
   status: AttendanceStatus;
 }
 
-// Classes the current teacher actually teaches — relies on
-// classes_select RLS (Phase 4), which already scopes this correctly;
-// no separate "my classes" flag needed, the query just reflects
-// whatever the teacher is allowed to see.
+// Classes are now global (Phase 10) — SELECT-level RLS no longer
+// narrows this to "my classes," so a dedicated RPC does that
+// filtering explicitly instead.
 export async function listMyClasses() {
-  const { data, error } = await supabase.from("classes").select("*").order("name");
+  const { data, error } = await supabase.rpc("get_my_teaching_classes");
   if (error) throw error;
   return data;
 }

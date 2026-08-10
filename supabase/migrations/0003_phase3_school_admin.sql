@@ -3,7 +3,7 @@
 -- Students, staff, classes, subjects, sessions, terms.
 -- Classes/subjects/sessions/terms are plain tenant tables already
 -- covered by the RLS from 0001 — no RPC needed, the frontend just
--- inserts with school_id = auth.school_id(). Students and staff need
+-- inserts with school_id = public.current_school_id(). Students and staff need
 -- RPCs because they involve generated IDs (and, for staff, an auth
 -- account) that must not be left to client-side logic to get right.
 -- =====================================================================
@@ -21,7 +21,7 @@ create table id_counters (
 );
 alter table id_counters enable row level security;
 create policy id_counters_isolation on id_counters
-  for all using (auth.is_super_admin() or school_id = auth.school_id());
+  for all using (public.is_super_admin() or school_id = public.current_school_id());
 
 create or replace function public.next_counter(p_school_id uuid, p_type text)
 returns integer
@@ -56,8 +56,8 @@ create or replace function public.create_student(
 ) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
-  v_school_id uuid := auth.school_id();
-  v_role text := auth.role_name();
+  v_school_id uuid := public.current_school_id();
+  v_role text := public.current_role_name();
   v_seq integer;
   v_year text;
   v_admission_number text;
@@ -99,10 +99,10 @@ create or replace function public.move_student(
 ) returns void
 language plpgsql security definer set search_path = public as $$
 declare
-  v_school_id uuid := auth.school_id();
+  v_school_id uuid := public.current_school_id();
   v_from_class uuid;
 begin
-  if auth.role_name() not in ('school_owner','school_admin','principal') then
+  if public.current_role_name() not in ('school_owner','school_admin','principal') then
     raise exception 'Not authorized';
   end if;
 

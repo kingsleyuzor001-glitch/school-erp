@@ -1,7 +1,7 @@
 -- =====================================================================
 -- PHASE 2 — SUPER ADMIN MODULE
 -- 1) Custom Access Token Hook: stamps role + school_id into the JWT
---    so the RLS policies from 0001 can actually resolve auth.school_id().
+--    so the RLS policies from 0001 can actually resolve public.current_school_id().
 -- 2) register_school(): atomic signup for a new school + its owner.
 -- 3) approve/suspend/activate/delete school: super-admin-only actions,
 --    each writing an audit_logs row.
@@ -32,7 +32,7 @@ begin
   claims := coalesce(event->'claims', '{}'::jsonb);
 
   if v_role is not null then
-    claims := jsonb_set(claims, '{role}', to_jsonb(v_role));
+    claims := jsonb_set(claims, '{user_role}', to_jsonb(v_role));
   end if;
 
   claims := jsonb_set(claims, '{school_id}',
@@ -101,13 +101,13 @@ grant execute on function public.register_school to authenticated;
 
 -- ---------------------------------------------------------------------
 -- 3) SUPER-ADMIN SCHOOL LIFECYCLE ACTIONS
--- Each checks auth.is_super_admin() itself rather than relying only on
+-- Each checks public.is_super_admin() itself rather than relying only on
 -- RLS, so the caller gets a clear error instead of a silent no-op.
 -- ---------------------------------------------------------------------
 create or replace function public.approve_school(p_school_id uuid) returns void
 language plpgsql security definer set search_path = public as $$
 begin
-  if not auth.is_super_admin() then raise exception 'Not authorized'; end if;
+  if not public.is_super_admin() then raise exception 'Not authorized'; end if;
 
   update schools set status = 'active', approved_at = now(), approved_by = auth.uid()
   where id = p_school_id;
@@ -123,7 +123,7 @@ $$;
 create or replace function public.suspend_school(p_school_id uuid) returns void
 language plpgsql security definer set search_path = public as $$
 begin
-  if not auth.is_super_admin() then raise exception 'Not authorized'; end if;
+  if not public.is_super_admin() then raise exception 'Not authorized'; end if;
 
   update schools set status = 'suspended' where id = p_school_id;
   update subscriptions set status = 'suspended' where school_id = p_school_id;
@@ -136,7 +136,7 @@ $$;
 create or replace function public.activate_school(p_school_id uuid) returns void
 language plpgsql security definer set search_path = public as $$
 begin
-  if not auth.is_super_admin() then raise exception 'Not authorized'; end if;
+  if not public.is_super_admin() then raise exception 'Not authorized'; end if;
 
   update schools set status = 'active' where id = p_school_id;
   update subscriptions set status = 'active' where school_id = p_school_id;
@@ -149,7 +149,7 @@ $$;
 create or replace function public.delete_school(p_school_id uuid) returns void
 language plpgsql security definer set search_path = public as $$
 begin
-  if not auth.is_super_admin() then raise exception 'Not authorized'; end if;
+  if not public.is_super_admin() then raise exception 'Not authorized'; end if;
 
   insert into audit_logs (school_id, actor_id, action, entity, entity_id)
   values (p_school_id, auth.uid(), 'school_deleted', 'schools', p_school_id);

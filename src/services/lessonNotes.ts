@@ -20,17 +20,18 @@ export async function listLessonNotes(classId?: string) {
 }
 
 export async function uploadLessonNote(input: {
-  schoolId: string; teacherId: string; classId: string; subjectId: string;
-  sessionId: string; termId: string; week: number; title: string; file: File;
+  teacherId: string; classId: string; subjectId: string;
+  week: number; title: string; file: File;
 }) {
-  // Path starts with school_id so the storage RLS from 0004 applies.
-  const path = `${input.schoolId}/lesson-notes/${input.classId}/${Date.now()}-${input.file.name}`;
+  // Global content now (Phase 10) — path uses a fixed "global/" prefix
+  // instead of a school_id, matching the storage policy change.
+  const path = `global/lesson-notes/${input.classId}/${Date.now()}-${input.file.name}`;
   const { error: uploadError } = await supabase.storage.from("lesson-notes").upload(path, input.file);
   if (uploadError) return { error: uploadError.message };
 
   const { error } = await supabase.from("lesson_notes").insert({
-    school_id: input.schoolId, teacher_id: input.teacherId, class_id: input.classId,
-    subject_id: input.subjectId, session_id: input.sessionId, term_id: input.termId,
+    school_id: null, teacher_id: input.teacherId, class_id: input.classId,
+    subject_id: input.subjectId, session_id: null, term_id: null,
     week: input.week, title: input.title, file_url: path, file_type: input.file.type
   });
   if (error) return { error: error.message };

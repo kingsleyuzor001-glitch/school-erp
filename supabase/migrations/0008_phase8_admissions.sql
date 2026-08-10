@@ -51,16 +51,16 @@ create policy admissions_public_insert on admission_applications for insert to a
   exists (select 1 from schools sc where sc.id = school_id and sc.status = 'active')
 );
 create policy admissions_authenticated_insert on admission_applications for insert to authenticated with check (
-  school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin')
+  school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin')
 );
 create policy admissions_select on admission_applications for select using (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in
     ('school_owner','school_admin','principal','vice_principal'))
 );
 create policy admissions_update on admission_applications for update using (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin')));
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin')));
 create policy admissions_delete on admission_applications for delete using (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin')));
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin')));
 
 -- ---------------------------------------------------------------------
 -- REVIEW WORKFLOW
@@ -74,13 +74,13 @@ create or replace function public.approve_application(
 ) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
-  v_school_id uuid := auth.school_id();
+  v_school_id uuid := public.current_school_id();
   v_app admission_applications;
   v_student_id uuid;
   v_seq integer;
   v_admission_number text;
 begin
-  if auth.role_name() not in ('school_owner','school_admin') then raise exception 'Not authorized'; end if;
+  if public.current_role_name() not in ('school_owner','school_admin') then raise exception 'Not authorized'; end if;
 
   select * into v_app from admission_applications where id = p_application_id and school_id = v_school_id;
   if not found then raise exception 'Application not found'; end if;
@@ -112,13 +112,13 @@ grant execute on function public.approve_application to authenticated;
 create or replace function public.reject_application(p_application_id uuid, p_reason text default null) returns void
 language plpgsql security definer set search_path = public as $$
 begin
-  if auth.role_name() not in ('school_owner','school_admin') then raise exception 'Not authorized'; end if;
+  if public.current_role_name() not in ('school_owner','school_admin') then raise exception 'Not authorized'; end if;
 
   update admission_applications set status = 'rejected', review_notes = p_reason, reviewed_by = auth.uid()
-  where id = p_application_id and school_id = auth.school_id();
+  where id = p_application_id and school_id = public.current_school_id();
 
   insert into audit_logs (school_id, actor_id, action, entity, entity_id)
-  values (auth.school_id(), auth.uid(), 'application_rejected', 'admission_applications', p_application_id);
+  values (public.current_school_id(), auth.uid(), 'application_rejected', 'admission_applications', p_application_id);
 end;
 $$;
 grant execute on function public.reject_application to authenticated;
@@ -141,16 +141,16 @@ create policy admission_uploads_public_insert on storage.objects for insert to a
 );
 create policy admission_uploads_admin_select on storage.objects for select using (
   bucket_id = 'admission-uploads' and (
-    auth.is_super_admin() or (
-      (storage.foldername(name))[1] = auth.school_id()::text
-      and auth.role_name() in ('school_owner','school_admin','principal','vice_principal')
+    public.is_super_admin() or (
+      (storage.foldername(name))[1] = public.current_school_id()::text
+      and public.current_role_name() in ('school_owner','school_admin','principal','vice_principal')
     )
   )
 );
 create policy admission_uploads_admin_delete on storage.objects for delete using (
   bucket_id = 'admission-uploads' and (
-    auth.is_super_admin() or (
-      (storage.foldername(name))[1] = auth.school_id()::text and auth.role_name() in ('school_owner','school_admin')
+    public.is_super_admin() or (
+      (storage.foldername(name))[1] = public.current_school_id()::text and public.current_role_name() in ('school_owner','school_admin')
     )
   )
 );

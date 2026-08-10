@@ -73,7 +73,7 @@ $$;
 create or replace function public.approve_school(p_school_id uuid) returns void
 language plpgsql security definer set search_path = public as $$
 begin
-  if not auth.is_super_admin() then raise exception 'Not authorized'; end if;
+  if not public.is_super_admin() then raise exception 'Not authorized'; end if;
 
   update schools set status = 'active', approved_at = now(), approved_by = auth.uid()
   where id = p_school_id;
@@ -100,27 +100,27 @@ drop policy if exists tenant_isolation_update on result_scores;
 drop policy if exists tenant_isolation_delete on result_scores;
 
 create policy result_scores_select on result_scores for select using (
-  auth.is_super_admin() or (school_id = auth.school_id() and (
-    auth.role_name() in ('school_owner','school_admin','principal','vice_principal')
-    or (auth.role_name() = 'teacher' and (entered_by = auth.uid() or is_class_teacher(class_id)))
-    or (auth.role_name() = 'parent' and status = 'published' and is_guardian_of_student(student_id))
-    or (auth.role_name() = 'student' and status = 'published' and is_own_student_record(student_id))
+  public.is_super_admin() or (school_id = public.current_school_id() and (
+    public.current_role_name() in ('school_owner','school_admin','principal','vice_principal')
+    or (public.current_role_name() = 'teacher' and (entered_by = auth.uid() or is_class_teacher(class_id)))
+    or (public.current_role_name() = 'parent' and status = 'published' and is_guardian_of_student(student_id))
+    or (public.current_role_name() = 'student' and status = 'published' and is_own_student_record(student_id))
   ))
 );
 create policy result_scores_insert on result_scores for insert with check (
-  auth.is_super_admin() or (school_id = auth.school_id() and (
-    auth.role_name() in ('school_owner','school_admin')
-    or (auth.role_name() = 'teacher' and entered_by = auth.uid() and is_teacher_of_class(class_id))
+  public.is_super_admin() or (school_id = public.current_school_id() and (
+    public.current_role_name() in ('school_owner','school_admin')
+    or (public.current_role_name() = 'teacher' and entered_by = auth.uid() and is_teacher_of_class(class_id))
   ))
 );
 create policy result_scores_update on result_scores for update using (
-  auth.is_super_admin() or (school_id = auth.school_id() and (
-    auth.role_name() in ('school_owner','school_admin')
-    or (auth.role_name() = 'teacher' and entered_by = auth.uid() and status = 'draft')
+  public.is_super_admin() or (school_id = public.current_school_id() and (
+    public.current_role_name() in ('school_owner','school_admin')
+    or (public.current_role_name() = 'teacher' and entered_by = auth.uid() and status = 'draft')
   ))
 );
 create policy result_scores_delete on result_scores for delete using (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin')));
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin')));
 
 -- ---------------------------------------------------------------------
 -- WORKFLOW: teacher submits -> principal approves -> admin publishes.
@@ -130,7 +130,7 @@ create policy result_scores_delete on result_scores for delete using (
 create or replace function public.submit_results(p_class_id uuid, p_subject_id uuid, p_term_id uuid) returns void
 language plpgsql security definer set search_path = public as $$
 begin
-  if auth.role_name() != 'teacher' or not is_teacher_of_class(p_class_id) then
+  if public.current_role_name() != 'teacher' or not is_teacher_of_class(p_class_id) then
     raise exception 'Not authorized';
   end if;
   update result_scores set status = 'submitted'
@@ -138,7 +138,7 @@ begin
     and entered_by = auth.uid() and status = 'draft';
 
   insert into audit_logs (school_id, actor_id, action, entity, metadata)
-  values (auth.school_id(), auth.uid(), 'results_submitted', 'result_scores',
+  values (public.current_school_id(), auth.uid(), 'results_submitted', 'result_scores',
     jsonb_build_object('class_id', p_class_id, 'subject_id', p_subject_id, 'term_id', p_term_id));
 end;
 $$;
@@ -147,13 +147,13 @@ grant execute on function public.submit_results to authenticated;
 create or replace function public.approve_results(p_class_id uuid, p_subject_id uuid, p_term_id uuid) returns void
 language plpgsql security definer set search_path = public as $$
 begin
-  if auth.role_name() not in ('principal','vice_principal') then raise exception 'Not authorized'; end if;
+  if public.current_role_name() not in ('principal','vice_principal') then raise exception 'Not authorized'; end if;
   update result_scores set status = 'approved', approved_by = auth.uid()
-  where school_id = auth.school_id() and class_id = p_class_id and subject_id = p_subject_id
+  where school_id = public.current_school_id() and class_id = p_class_id and subject_id = p_subject_id
     and term_id = p_term_id and status = 'submitted';
 
   insert into audit_logs (school_id, actor_id, action, entity, metadata)
-  values (auth.school_id(), auth.uid(), 'results_approved', 'result_scores',
+  values (public.current_school_id(), auth.uid(), 'results_approved', 'result_scores',
     jsonb_build_object('class_id', p_class_id, 'subject_id', p_subject_id, 'term_id', p_term_id));
 end;
 $$;
@@ -162,12 +162,12 @@ grant execute on function public.approve_results to authenticated;
 create or replace function public.publish_results(p_class_id uuid, p_term_id uuid) returns void
 language plpgsql security definer set search_path = public as $$
 begin
-  if auth.role_name() not in ('school_owner','school_admin') then raise exception 'Not authorized'; end if;
+  if public.current_role_name() not in ('school_owner','school_admin') then raise exception 'Not authorized'; end if;
   update result_scores set status = 'published', published_at = now()
-  where school_id = auth.school_id() and class_id = p_class_id and term_id = p_term_id and status = 'approved';
+  where school_id = public.current_school_id() and class_id = p_class_id and term_id = p_term_id and status = 'approved';
 
   insert into audit_logs (school_id, actor_id, action, entity, metadata)
-  values (auth.school_id(), auth.uid(), 'results_published', 'result_scores',
+  values (public.current_school_id(), auth.uid(), 'results_published', 'result_scores',
     jsonb_build_object('class_id', p_class_id, 'term_id', p_term_id));
 end;
 $$;
@@ -185,7 +185,7 @@ grant execute on function public.publish_results to authenticated;
 create or replace function public.get_report_card(p_student_id uuid, p_term_id uuid) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
-  v_school_id uuid := auth.school_id();
+  v_school_id uuid := public.current_school_id();
   v_class_id uuid;
   v_result jsonb;
   v_position integer;
@@ -197,19 +197,19 @@ begin
 
   -- Authorization: admin/principal/class-teacher, or the student's own guardian/self.
   if not (
-    auth.is_super_admin()
-    or auth.role_name() in ('school_owner','school_admin','principal','vice_principal')
-    or (auth.role_name() = 'teacher' and is_class_teacher(v_class_id))
-    or (auth.role_name() = 'parent' and is_guardian_of_student(p_student_id))
-    or (auth.role_name() = 'student' and is_own_student_record(p_student_id))
+    public.is_super_admin()
+    or public.current_role_name() in ('school_owner','school_admin','principal','vice_principal')
+    or (public.current_role_name() = 'teacher' and is_class_teacher(v_class_id))
+    or (public.current_role_name() = 'parent' and is_guardian_of_student(p_student_id))
+    or (public.current_role_name() = 'student' and is_own_student_record(p_student_id))
   ) then
     raise exception 'Not authorized';
   end if;
 
   -- Non-admin viewers only ever see published results.
   with visible_scope as (
-    select case when auth.role_name() in ('school_owner','school_admin','principal','vice_principal')
-                  or auth.is_super_admin() or (auth.role_name()='teacher' and is_class_teacher(v_class_id))
+    select case when public.current_role_name() in ('school_owner','school_admin','principal','vice_principal')
+                  or public.is_super_admin() or (public.current_role_name()='teacher' and is_class_teacher(v_class_id))
       then array['draft','submitted','approved','published']
       else array['published'] end as statuses
   ),

@@ -4,7 +4,7 @@
 -- Also fixes a gap left open since Phase 1: the original tenant_isolation_*
 -- policies allowed ANY authenticated member of a school to write to ANY
 -- tenant table — a student could technically update another student's
--- row, because "school_id = auth.school_id()" says nothing about role.
+-- row, because "school_id = public.current_school_id()" says nothing about role.
 -- That was fine while only admins had UI to write anything, but Phase 4
 -- gives teachers real write access (attendance, lesson notes), so this
 -- is the right moment to replace the blanket policies on the tables
@@ -44,17 +44,17 @@ drop policy if exists tenant_isolation_update on classes;
 drop policy if exists tenant_isolation_delete on classes;
 
 create policy classes_select on classes for select using (
-  auth.is_super_admin() or (school_id = auth.school_id() and (
-    auth.role_name() in ('school_owner','school_admin','principal','vice_principal','parent','student')
-    or (auth.role_name() = 'teacher' and is_teacher_of_class(id))
+  public.is_super_admin() or (school_id = public.current_school_id() and (
+    public.current_role_name() in ('school_owner','school_admin','principal','vice_principal','parent','student')
+    or (public.current_role_name() = 'teacher' and is_teacher_of_class(id))
   ))
 );
 create policy classes_admin_write on classes for insert with check (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin')));
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin')));
 create policy classes_admin_update on classes for update using (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin')));
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin')));
 create policy classes_admin_delete on classes for delete using (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin')));
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin')));
 
 -- ---------------------------------------------------------------------
 -- STUDENTS — teachers see only their own class(es); parents/students
@@ -66,19 +66,19 @@ drop policy if exists tenant_isolation_update on students;
 drop policy if exists tenant_isolation_delete on students;
 
 create policy students_select on students for select using (
-  auth.is_super_admin() or (school_id = auth.school_id() and (
-    auth.role_name() in ('school_owner','school_admin','principal','vice_principal')
-    or (auth.role_name() = 'teacher' and class_id is not null and is_teacher_of_class(class_id))
-    or (auth.role_name() = 'parent' and is_guardian_of_student(id))
-    or (auth.role_name() = 'student' and is_own_student_record(id))
+  public.is_super_admin() or (school_id = public.current_school_id() and (
+    public.current_role_name() in ('school_owner','school_admin','principal','vice_principal')
+    or (public.current_role_name() = 'teacher' and class_id is not null and is_teacher_of_class(class_id))
+    or (public.current_role_name() = 'parent' and is_guardian_of_student(id))
+    or (public.current_role_name() = 'student' and is_own_student_record(id))
   ))
 );
 create policy students_admin_write on students for insert with check (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin')));
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin')));
 create policy students_admin_update on students for update using (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin')));
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin')));
 create policy students_admin_delete on students for delete using (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin')));
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin')));
 
 -- ---------------------------------------------------------------------
 -- ATTENDANCE_RECORDS — teachers write only for classes they teach;
@@ -90,27 +90,27 @@ drop policy if exists tenant_isolation_update on attendance_records;
 drop policy if exists tenant_isolation_delete on attendance_records;
 
 create policy attendance_select on attendance_records for select using (
-  auth.is_super_admin() or (school_id = auth.school_id() and (
-    auth.role_name() in ('school_owner','school_admin','principal','vice_principal')
-    or (auth.role_name() = 'teacher' and is_teacher_of_class(class_id))
-    or (auth.role_name() = 'parent' and is_guardian_of_student(student_id))
-    or (auth.role_name() = 'student' and is_own_student_record(student_id))
+  public.is_super_admin() or (school_id = public.current_school_id() and (
+    public.current_role_name() in ('school_owner','school_admin','principal','vice_principal')
+    or (public.current_role_name() = 'teacher' and is_teacher_of_class(class_id))
+    or (public.current_role_name() = 'parent' and is_guardian_of_student(student_id))
+    or (public.current_role_name() = 'student' and is_own_student_record(student_id))
   ))
 );
 create policy attendance_write on attendance_records for insert with check (
-  auth.is_super_admin() or (school_id = auth.school_id() and (
-    auth.role_name() in ('school_owner','school_admin')
-    or (auth.role_name() = 'teacher' and is_teacher_of_class(class_id))
+  public.is_super_admin() or (school_id = public.current_school_id() and (
+    public.current_role_name() in ('school_owner','school_admin')
+    or (public.current_role_name() = 'teacher' and is_teacher_of_class(class_id))
   ))
 );
 create policy attendance_update on attendance_records for update using (
-  auth.is_super_admin() or (school_id = auth.school_id() and (
-    auth.role_name() in ('school_owner','school_admin')
-    or (auth.role_name() = 'teacher' and is_teacher_of_class(class_id))
+  public.is_super_admin() or (school_id = public.current_school_id() and (
+    public.current_role_name() in ('school_owner','school_admin')
+    or (public.current_role_name() = 'teacher' and is_teacher_of_class(class_id))
   ))
 );
 create policy attendance_admin_delete on attendance_records for delete using (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin')));
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin')));
 
 -- Bulk mark, one call per (class, date) — atomic + audited, and
 -- re-checks the teacher actually owns this class server-side.
@@ -119,8 +119,8 @@ create or replace function public.mark_attendance(
 ) returns void
 language plpgsql security definer set search_path = public as $$
 declare
-  v_school_id uuid := auth.school_id();
-  v_role text := auth.role_name();
+  v_school_id uuid := public.current_school_id();
+  v_role text := public.current_role_name();
   r jsonb;
 begin
   if v_school_id is null then raise exception 'No school context'; end if;
@@ -151,21 +151,21 @@ drop policy if exists tenant_isolation_update on lesson_notes;
 drop policy if exists tenant_isolation_delete on lesson_notes;
 
 create policy lesson_notes_select on lesson_notes for select using (
-  auth.is_super_admin() or school_id = auth.school_id());
+  public.is_super_admin() or school_id = public.current_school_id());
 create policy lesson_notes_write on lesson_notes for insert with check (
-  auth.is_super_admin() or (school_id = auth.school_id() and (
-    auth.role_name() in ('school_owner','school_admin')
-    or (auth.role_name() = 'teacher' and teacher_id = auth.uid() and is_teacher_of_class(class_id))
+  public.is_super_admin() or (school_id = public.current_school_id() and (
+    public.current_role_name() in ('school_owner','school_admin')
+    or (public.current_role_name() = 'teacher' and teacher_id = auth.uid() and is_teacher_of_class(class_id))
   ))
 );
 create policy lesson_notes_update on lesson_notes for update using (
-  auth.is_super_admin() or (school_id = auth.school_id() and (
-    auth.role_name() in ('school_owner','school_admin') or (auth.role_name() = 'teacher' and teacher_id = auth.uid())
+  public.is_super_admin() or (school_id = public.current_school_id() and (
+    public.current_role_name() in ('school_owner','school_admin') or (public.current_role_name() = 'teacher' and teacher_id = auth.uid())
   ))
 );
 create policy lesson_notes_delete on lesson_notes for delete using (
-  auth.is_super_admin() or (school_id = auth.school_id() and (
-    auth.role_name() in ('school_owner','school_admin') or (auth.role_name() = 'teacher' and teacher_id = auth.uid())
+  public.is_super_admin() or (school_id = public.current_school_id() and (
+    public.current_role_name() in ('school_owner','school_admin') or (public.current_role_name() = 'teacher' and teacher_id = auth.uid())
   ))
 );
 
@@ -179,19 +179,19 @@ drop policy if exists tenant_isolation_update on announcements;
 drop policy if exists tenant_isolation_delete on announcements;
 
 create policy announcements_select on announcements for select using (
-  auth.is_super_admin() or (school_id = auth.school_id() and (
+  public.is_super_admin() or (school_id = public.current_school_id() and (
     target_audience = 'everyone'
-    or (target_audience = 'teachers' and auth.role_name() in ('teacher','vice_principal','principal','school_admin','school_owner'))
-    or (target_audience = 'parents' and auth.role_name() = 'parent')
-    or (target_audience = 'students' and auth.role_name() = 'student')
+    or (target_audience = 'teachers' and public.current_role_name() in ('teacher','vice_principal','principal','school_admin','school_owner'))
+    or (target_audience = 'parents' and public.current_role_name() = 'parent')
+    or (target_audience = 'students' and public.current_role_name() = 'student')
   ))
 );
 create policy announcements_write on announcements for insert with check (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin','principal','vice_principal')));
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin','principal','vice_principal')));
 create policy announcements_update on announcements for update using (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin','principal','vice_principal')));
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin','principal','vice_principal')));
 create policy announcements_delete on announcements for delete using (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin','principal','vice_principal')));
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin','principal','vice_principal')));
 
 -- ---------------------------------------------------------------------
 -- SCHOOL_ACTIVITIES (gallery/videos) — everyone in school can view;
@@ -203,20 +203,20 @@ drop policy if exists tenant_isolation_update on school_activities;
 drop policy if exists tenant_isolation_delete on school_activities;
 
 create policy activities_select on school_activities for select using (
-  auth.is_super_admin() or school_id = auth.school_id());
+  public.is_super_admin() or school_id = public.current_school_id());
 create policy activities_write on school_activities for insert with check (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in
     ('school_owner','school_admin','teacher','principal','vice_principal')));
 create policy activities_delete on school_activities for delete using (
-  auth.is_super_admin() or (school_id = auth.school_id() and (
-    auth.role_name() in ('school_owner','school_admin') or uploaded_by = auth.uid()
+  public.is_super_admin() or (school_id = public.current_school_id() and (
+    public.current_role_name() in ('school_owner','school_admin') or uploaded_by = auth.uid()
   ))
 );
 
 -- =====================================================================
 -- STORAGE — private buckets, tenant-isolated by folder convention:
 -- every object path starts with "{school_id}/...". RLS on
--- storage.objects checks that prefix against auth.school_id(), the
+-- storage.objects checks that prefix against public.current_school_id(), the
 -- same way every table above does.
 -- =====================================================================
 insert into storage.buckets (id, name, public) values ('lesson-notes', 'lesson-notes', false)
@@ -228,17 +228,17 @@ insert into storage.buckets (id, name, public) values ('passports', 'passports',
 
 create policy tenant_storage_select on storage.objects for select using (
   bucket_id in ('lesson-notes','school-activities','passports') and (
-    auth.is_super_admin() or (storage.foldername(name))[1] = auth.school_id()::text
+    public.is_super_admin() or (storage.foldername(name))[1] = public.current_school_id()::text
   )
 );
 create policy tenant_storage_insert on storage.objects for insert with check (
   bucket_id in ('lesson-notes','school-activities','passports') and (
-    auth.is_super_admin() or (storage.foldername(name))[1] = auth.school_id()::text
+    public.is_super_admin() or (storage.foldername(name))[1] = public.current_school_id()::text
   )
 );
 create policy tenant_storage_delete on storage.objects for delete using (
   bucket_id in ('lesson-notes','school-activities','passports') and (
-    auth.is_super_admin() or (storage.foldername(name))[1] = auth.school_id()::text
+    public.is_super_admin() or (storage.foldername(name))[1] = public.current_school_id()::text
   )
 );
 

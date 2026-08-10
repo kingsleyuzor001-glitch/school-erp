@@ -11,6 +11,7 @@ import AccountSuspendedPage from "./pages/auth/AccountSuspendedPage";
 import ApplyPage from "./pages/public/ApplyPage";
 
 import SchoolsPage from "./pages/super-admin/SchoolsPage";
+import CurriculumPage from "./pages/super-admin/CurriculumPage";
 
 import SchoolAdminDashboardPage from "./pages/school-admin/DashboardPage";
 import StudentsPage from "./pages/school-admin/StudentsPage";
@@ -79,6 +80,7 @@ export default function App() {
       <Route element={<ProtectedRoute allowed={["super_admin"]} />}>
         <Route element={<AppLayout />}>
           <Route path="/super-admin/dashboard" element={<SchoolsPage />} />
+          <Route path="/super-admin/curriculum" element={<CurriculumPage />} />
         </Route>
       </Route>
 
@@ -112,10 +114,10 @@ export default function App() {
         </Route>
       </Route>
 
-      {/* Lesson notes: teachers upload, everyone in the school can read
-          (RLS already enforces this) — one shared route rather than
+      {/* Lesson notes: shared platform-wide (Phase 10) — super admin
+          uploads, everyone else reads. One shared route rather than
           duplicating the page under every role's prefix. */}
-      <Route element={<ProtectedRoute allowed={NON_ADMISSION_STAFF} />}>
+      <Route element={<ProtectedRoute allowed={ALL_ROLES} />}>
         <Route element={<AppLayout />}>
           <Route path="/teacher/lesson-notes" element={<LessonNotesPage />} />
         </Route>

@@ -5,6 +5,8 @@ import type { UserRole } from "../../types/auth";
 const NAV: Record<UserRole, { label: string; to: string }[]> = {
   super_admin: [
     { label: "Schools", to: "/super-admin/dashboard" },
+    { label: "Curriculum", to: "/super-admin/curriculum" },
+    { label: "Lesson Notes", to: "/teacher/lesson-notes" },
     { label: "Announcements", to: "/announcements" }
   ],
   school_owner: [

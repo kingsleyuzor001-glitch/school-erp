@@ -1,28 +1,19 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import {
-  Session, Term, SchoolClass, Subject,
-  listSessions, createSession, setCurrentSession,
-  listTerms, createTerm, listClasses, createClass, listSubjects, createSubject
-} from "../../services/academic";
+import { Session, Term, listSessions, createSession, setCurrentSession, listTerms, createTerm } from "../../services/academic";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 
-const TABS = ["Sessions & Terms", "Classes", "Subjects"] as const;
-
 export default function AcademicSetupPage() {
   const { profile } = useAuth();
-  const [tab, setTab] = useState<(typeof TABS)[number]>("Sessions & Terms");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [terms, setTerms] = useState<Term[]>([]);
-  const [classes, setClasses] = useState<SchoolClass[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function loadAll() {
     setLoading(true);
-    const [s, t, c, sub] = await Promise.all([listSessions(), listTerms(), listClasses(), listSubjects()]);
-    setSessions(s); setTerms(t); setClasses(c); setSubjects(sub);
+    const [s, t] = await Promise.all([listSessions(), listTerms()]);
+    setSessions(s); setTerms(t);
     setLoading(false);
   }
   useEffect(() => { loadAll(); }, []);
@@ -33,32 +24,16 @@ export default function AcademicSetupPage() {
     <div className="space-y-4 p-4 sm:p-6">
       <div>
         <h1 className="font-display text-xl font-bold">Academic Setup</h1>
-        <p className="text-sm text-slate-500">Sessions, terms, classes, and subjects for your school.</p>
-      </div>
-
-      <div className="flex gap-2 border-b border-slate-200">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-3 py-2 text-sm font-medium ${tab === t ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500"}`}
-          >
-            {t}
-          </button>
-        ))}
+        <p className="text-sm text-slate-500">
+          Sessions and terms for your school. Classes, subjects, and lesson notes are managed
+          platform-wide by the Super Admin and shared automatically across every school.
+        </p>
       </div>
 
       {loading ? (
         <p className="text-sm text-slate-400">Loading…</p>
-      ) : tab === "Sessions & Terms" ? (
-        <SessionsTerms
-          schoolId={profile.school_id} sessions={sessions} terms={terms}
-          onChanged={loadAll}
-        />
-      ) : tab === "Classes" ? (
-        <ClassesTab schoolId={profile.school_id} classes={classes} onChanged={loadAll} />
       ) : (
-        <SubjectsTab schoolId={profile.school_id} subjects={subjects} onChanged={loadAll} />
+        <SessionsTerms schoolId={profile.school_id} sessions={sessions} terms={terms} onChanged={loadAll} />
       )}
     </div>
   );
@@ -124,49 +99,5 @@ function SessionsTerms({
         </div>
       </Card>
     </div>
-  );
-}
-
-function ClassesTab({ schoolId, classes, onChanged }: { schoolId: string; classes: SchoolClass[]; onChanged: () => void }) {
-  const [name, setName] = useState("");
-  const [arm, setArm] = useState("");
-  return (
-    <Card>
-      <h2 className="mb-3 font-display text-base font-semibold">Classes</h2>
-      <table className="mb-4 w-full text-left text-sm">
-        <thead className="text-xs uppercase text-slate-500"><tr><th className="py-1">Class</th><th className="py-1">Arm</th></tr></thead>
-        <tbody>
-          {classes.map((c) => <tr key={c.id} className="border-t border-slate-100"><td className="py-1.5">{c.name}</td><td className="py-1.5">{c.arm || "—"}</td></tr>)}
-          {classes.length === 0 && <tr><td colSpan={2} className="py-3 text-slate-400">No classes yet.</td></tr>}
-        </tbody>
-      </table>
-      <div className="flex gap-2">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Class name, e.g. JSS 1" className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm" />
-        <input value={arm} onChange={(e) => setArm(e.target.value)} placeholder="Arm (optional)" className="w-32 rounded-lg border border-slate-300 px-3 py-1.5 text-sm" />
-        <Button onClick={async () => { if (!name) return; await createClass(schoolId, name, arm); setName(""); setArm(""); onChanged(); }}>Add</Button>
-      </div>
-    </Card>
-  );
-}
-
-function SubjectsTab({ schoolId, subjects, onChanged }: { schoolId: string; subjects: Subject[]; onChanged: () => void }) {
-  const [name, setName] = useState("");
-  const [code, setCode] = useState("");
-  return (
-    <Card>
-      <h2 className="mb-3 font-display text-base font-semibold">Subjects</h2>
-      <table className="mb-4 w-full text-left text-sm">
-        <thead className="text-xs uppercase text-slate-500"><tr><th className="py-1">Subject</th><th className="py-1">Code</th></tr></thead>
-        <tbody>
-          {subjects.map((s) => <tr key={s.id} className="border-t border-slate-100"><td className="py-1.5">{s.name}</td><td className="py-1.5">{s.code || "—"}</td></tr>)}
-          {subjects.length === 0 && <tr><td colSpan={2} className="py-3 text-slate-400">No subjects yet.</td></tr>}
-        </tbody>
-      </table>
-      <div className="flex gap-2">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Subject name" className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm" />
-        <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Code (optional)" className="w-32 rounded-lg border border-slate-300 px-3 py-1.5 text-sm" />
-        <Button onClick={async () => { if (!name) return; await createSubject(schoolId, name, code); setName(""); setCode(""); onChanged(); }}>Add</Button>
-      </div>
-    </Card>
   );
 }

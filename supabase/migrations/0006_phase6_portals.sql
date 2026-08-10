@@ -21,17 +21,17 @@ drop policy if exists tenant_isolation_update on guardians;
 drop policy if exists tenant_isolation_delete on guardians;
 
 create policy guardians_select on guardians for select using (
-  auth.is_super_admin() or (school_id = auth.school_id() and (
-    auth.role_name() in ('school_owner','school_admin','principal','vice_principal')
+  public.is_super_admin() or (school_id = public.current_school_id() and (
+    public.current_role_name() in ('school_owner','school_admin','principal','vice_principal')
     or profile_id = auth.uid()
   ))
 );
 create policy guardians_admin_write on guardians for insert with check (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin')));
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin')));
 create policy guardians_admin_update on guardians for update using (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin')));
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin')));
 create policy guardians_admin_delete on guardians for delete using (
-  auth.is_super_admin() or (school_id = auth.school_id() and auth.role_name() in ('school_owner','school_admin')));
+  public.is_super_admin() or (school_id = public.current_school_id() and public.current_role_name() in ('school_owner','school_admin')));
 
 -- student_guardians is a junction table with no school_id of its own;
 -- scope it by whether the caller is that guardian, or an admin whose
@@ -39,23 +39,23 @@ create policy guardians_admin_delete on guardians for delete using (
 drop policy if exists student_guardians_isolation on student_guardians;
 
 create policy student_guardians_select on student_guardians for select using (
-  auth.is_super_admin()
+  public.is_super_admin()
   or exists (select 1 from guardians g where g.id = guardian_id and g.profile_id = auth.uid())
   or exists (
-    select 1 from students s where s.id = student_id and s.school_id = auth.school_id()
-      and auth.role_name() in ('school_owner','school_admin','principal','vice_principal')
+    select 1 from students s where s.id = student_id and s.school_id = public.current_school_id()
+      and public.current_role_name() in ('school_owner','school_admin','principal','vice_principal')
   )
 );
 create policy student_guardians_admin_write on student_guardians for insert with check (
-  auth.is_super_admin() or exists (
-    select 1 from students s where s.id = student_id and s.school_id = auth.school_id()
-      and auth.role_name() in ('school_owner','school_admin')
+  public.is_super_admin() or exists (
+    select 1 from students s where s.id = student_id and s.school_id = public.current_school_id()
+      and public.current_role_name() in ('school_owner','school_admin')
   )
 );
 create policy student_guardians_admin_delete on student_guardians for delete using (
-  auth.is_super_admin() or exists (
-    select 1 from students s where s.id = student_id and s.school_id = auth.school_id()
-      and auth.role_name() in ('school_owner','school_admin')
+  public.is_super_admin() or exists (
+    select 1 from students s where s.id = student_id and s.school_id = public.current_school_id()
+      and public.current_role_name() in ('school_owner','school_admin')
   )
 );
 
