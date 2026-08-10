@@ -120,6 +120,7 @@ export default function App() {
       <Route element={<ProtectedRoute allowed={ALL_ROLES} />}>
         <Route element={<AppLayout />}>
           <Route path="/teacher/lesson-notes" element={<LessonNotesPage />} />
+      <Route path="/school-admin/lesson-notes" element={<LessonNotesPage />} />
         </Route>
       </Route>
 
@@ -153,3 +154,8 @@ export default function App() {
     </Routes>
   );
 }
+
+
+
+
+

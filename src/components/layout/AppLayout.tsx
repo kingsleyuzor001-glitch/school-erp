@@ -6,7 +6,6 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
   super_admin: [
     { label: "Schools", to: "/super-admin/dashboard" },
     { label: "Curriculum", to: "/super-admin/curriculum" },
-    { label: "Lesson Notes", to: "/teacher/lesson-notes" },
     { label: "Announcements", to: "/announcements" }
   ],
   school_owner: [
@@ -14,6 +13,7 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
     { label: "Students", to: "/school-admin/students" },
     { label: "Staff", to: "/school-admin/staff" },
     { label: "Academic Setup", to: "/school-admin/academic-setup" },
+    { label: "Lesson Notes", to: "/school-admin/lesson-notes" },
     { label: "Admissions", to: "/school-admin/admissions" },
     { label: "Publish Results", to: "/school-admin/publish-results" },
     { label: "Portal Access", to: "/school-admin/portal-access" },
@@ -36,21 +36,18 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
     { label: "Dashboard", to: "/teacher/dashboard" },
     { label: "Attendance", to: "/teacher/attendance" },
     { label: "Results Entry", to: "/teacher/results" },
-    { label: "Lesson Notes", to: "/teacher/lesson-notes" },
     { label: "Announcements", to: "/announcements" },
     { label: "Activities", to: "/activities" }
   ],
   parent: [
     { label: "My Children", to: "/parent/dashboard" },
     { label: "Report Card", to: "/report-card" },
-    { label: "Lesson Notes", to: "/teacher/lesson-notes" },
     { label: "Announcements", to: "/announcements" },
     { label: "Activities", to: "/activities" }
   ],
   student: [
     { label: "My Profile", to: "/student/dashboard" },
     { label: "Report Card", to: "/report-card" },
-    { label: "Lesson Notes", to: "/teacher/lesson-notes" },
     { label: "Announcements", to: "/announcements" },
     { label: "Activities", to: "/activities" }
   ]
@@ -100,3 +97,6 @@ export function AppLayout() {
     </div>
   );
 }
+
+
+
