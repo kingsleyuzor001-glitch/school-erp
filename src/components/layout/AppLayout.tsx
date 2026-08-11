@@ -23,7 +23,21 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
     { label: "Announcements", to: "/announcements" },
     { label: "Activities", to: "/activities" }
   ],
-  school_admin: [], // filled in below — identical to school_owner
+  school_admin: [
+    { label: "Dashboard", to: "/school-admin/dashboard" },
+    { label: "Students", to: "/school-admin/students" },
+    { label: "Staff", to: "/school-admin/staff" },
+    { label: "Academic Setup", to: "/school-admin/academic-setup" },
+    { label: "Lesson Notes", to: "/school-admin/lesson-notes" },
+    { label: "Admissions", to: "/school-admin/admissions" },
+    { label: "Publish Results", to: "/school-admin/publish-results" },
+    { label: "Portal Access", to: "/school-admin/portal-access" },
+    { label: "Student ID Cards", to: "/school-admin/id-cards/students" },
+    { label: "Staff ID Cards", to: "/school-admin/id-cards/staff" },
+    { label: "Branding", to: "/school-admin/branding" },
+    { label: "Announcements", to: "/announcements" },
+    { label: "Activities", to: "/activities" }
+  ],
   principal: [
     { label: "Dashboard", to: "/principal/dashboard" },
     { label: "Approve Results", to: "/principal/approve-results" },
@@ -52,7 +66,7 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
     { label: "Activities", to: "/activities" }
   ]
 };
-NAV.school_admin = NAV.school_owner;
+
 NAV.vice_principal = NAV.principal;
 
 export function AppLayout() {
@@ -97,6 +111,8 @@ export function AppLayout() {
     </div>
   );
 }
+
+
 
 
 

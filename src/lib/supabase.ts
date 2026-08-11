@@ -9,13 +9,22 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-// school_id and role are embedded as custom JWT claims (via a Supabase
-// auth hook on profiles) so Postgres RLS can read them directly —
-// no extra round trip needed per request.
+// Normal authenticated client used throughout the protected application.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true
+  }
+});
+
+// Separate client for genuinely public operations such as the
+// unauthenticated admissions application form.
+// It must NOT reuse the browser's logged-in session.
+export const publicSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false
   }
 });
