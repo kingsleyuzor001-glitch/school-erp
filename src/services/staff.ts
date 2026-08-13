@@ -52,3 +52,59 @@ export async function uploadStaffPassport(schoolId: string, profileId: string, f
   if (error) return { error: error.message };
   return { error: null };
 }
+export async function updateStaff(input: {
+  staffId: string;
+  profileId: string;
+  fullName: string;
+  role: string;
+  department?: string;
+  position?: string;
+  qualification?: string;
+  employmentDate?: string;
+  status?: string;
+}) {
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({
+      full_name: input.fullName,
+      role: input.role,
+      status: input.status ?? "active"
+    })
+    .eq("id", input.profileId);
+
+  if (profileError) {
+    return { error: profileError.message };
+  }
+
+  const { error: staffError } = await supabase
+    .from("staff")
+    .update({
+      department: input.department || null,
+      position: input.position || null,
+      qualification: input.qualification || null,
+      employment_date: input.employmentDate || null
+    })
+    .eq("id", input.staffId);
+
+  if (staffError) {
+    return { error: staffError.message };
+  }
+
+  return { error: null };
+}
+
+export async function setStaffStatus(
+  profileId: string,
+  status: "active" | "inactive"
+) {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ status })
+    .eq("id", profileId);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { error: null };
+}
