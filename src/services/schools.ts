@@ -70,3 +70,17 @@ export const approveSchool = async (id: string) => supabase.rpc("approve_school"
 export const suspendSchool = async (id: string) => supabase.rpc("suspend_school", { p_school_id: id });
 export const activateSchool = async (id: string) => supabase.rpc("activate_school", { p_school_id: id });
 export const deleteSchool = async (id: string) => supabase.rpc("delete_school", { p_school_id: id });
+
+export async function updateSchoolAcademicSelection(
+  schoolId: string,
+  sessionId: string,
+  termId: string
+) {
+  return supabase
+    .from("schools")
+    .update({
+      current_session_id: sessionId,
+      current_term_id: termId
+    })
+    .eq("id", schoolId);
+}

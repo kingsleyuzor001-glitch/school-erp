@@ -1,103 +1,192 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { Session, Term, listSessions, createSession, setCurrentSession, listTerms, createTerm } from "../../services/academic";
+import {
+  Session,
+  Term,
+  listSessions,
+  listTerms
+} from "../../services/academic";
+import {
+  updateSchoolAcademicSelection
+} from "../../services/schools";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 
 export default function AcademicSetupPage() {
   const { profile } = useAuth();
+
   const [sessions, setSessions] = useState<Session[]>([]);
   const [terms, setTerms] = useState<Term[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  async function loadAll() {
+  const [selectedSession, setSelectedSession] = useState("");
+  const [selectedTerm, setSelectedTerm] = useState("");
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  async function loadAcademicOptions() {
     setLoading(true);
-    const [s, t] = await Promise.all([listSessions(), listTerms()]);
-    setSessions(s); setTerms(t);
+
+    const [sessionData, termData] = await Promise.all([
+      listSessions(),
+      listTerms()
+    ]);
+
+    setSessions(sessionData);
+    setTerms(termData);
+
+    const currentSession =
+      sessionData.find((s) => s.is_current) ?? sessionData[0];
+
+    const currentTerm =
+      termData.find((t) => t.is_current) ?? termData[0];
+
+    if (currentSession) {
+      setSelectedSession(currentSession.id);
+    }
+
+    if (currentTerm) {
+      setSelectedTerm(currentTerm.id);
+    }
+
     setLoading(false);
   }
-  useEffect(() => { loadAll(); }, []);
 
-  if (!profile?.school_id) return null;
+  useEffect(() => {
+    loadAcademicOptions();
+  }, []);
+
+  async function saveSelection() {
+    if (!profile?.school_id) return;
+
+    if (!selectedSession || !selectedTerm) return;
+
+    setSaving(true);
+
+    const { error } = await updateSchoolAcademicSelection(
+      profile.school_id,
+      selectedSession,
+      selectedTerm
+    );
+
+    setSaving(false);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    alert("Academic selection updated successfully.");
+  }
+
+
+  if (!profile?.school_id) {
+    return null;
+  }
+
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
+
       <div>
-        <h1 className="font-display text-xl font-bold">Academic Setup</h1>
+        <h1 className="font-display text-xl font-bold">
+          Academic Setup
+        </h1>
+
         <p className="text-sm text-slate-500">
-          Sessions and terms for your school. Classes, subjects, and lesson notes are managed
-          platform-wide by the Super Admin and shared automatically across every school.
+          Your school can select from the academic structure created by
+          the Super Admin. Sessions, terms, classes and subjects are
+          managed centrally by the platform.
         </p>
       </div>
 
+
       {loading ? (
-        <p className="text-sm text-slate-400">Loading…</p>
+
+        <p className="text-sm text-slate-400">
+          Loading academic options...
+        </p>
+
       ) : (
-        <SessionsTerms schoolId={profile.school_id} sessions={sessions} terms={terms} onChanged={loadAll} />
-      )}
-    </div>
-  );
-}
 
-function SessionsTerms({
-  schoolId, sessions, terms, onChanged
-}: { schoolId: string; sessions: Session[]; terms: Term[]; onChanged: () => void }) {
-  const [newSession, setNewSession] = useState("");
-  const [termSession, setTermSession] = useState("");
-  const [newTerm, setNewTerm] = useState("");
+        <Card>
 
-  return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <Card>
-        <h2 className="mb-3 font-display text-base font-semibold">Sessions</h2>
-        <ul className="mb-4 space-y-1">
-          {sessions.map((s) => (
-            <li key={s.id} className="flex items-center justify-between rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50">
-              <span>{s.name} {s.is_current && <span className="ml-1 rounded-full bg-brand-100 px-2 py-0.5 text-xs text-brand-700">current</span>}</span>
-              {!s.is_current && (
-                <button onClick={async () => { await setCurrentSession(schoolId, s.id); onChanged(); }} className="text-xs text-brand-600 hover:underline">
-                  Set current
-                </button>
-              )}
-            </li>
-          ))}
-          {sessions.length === 0 && <li className="text-sm text-slate-400">No sessions yet.</li>}
-        </ul>
-        <div className="flex gap-2">
-          <input value={newSession} onChange={(e) => setNewSession(e.target.value)} placeholder="e.g. 2026/2027"
-            className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm" />
-          <Button onClick={async () => { if (!newSession) return; await createSession(schoolId, newSession); setNewSession(""); onChanged(); }}>
-            Add
-          </Button>
-        </div>
-      </Card>
+          <div className="space-y-4">
 
-      <Card>
-        <h2 className="mb-3 font-display text-base font-semibold">Terms</h2>
-        <ul className="mb-4 space-y-1">
-          {terms.map((t) => (
-            <li key={t.id} className="rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50">
-              {t.name} {t.is_current && <span className="ml-1 rounded-full bg-brand-100 px-2 py-0.5 text-xs text-brand-700">current</span>}
-            </li>
-          ))}
-          {terms.length === 0 && <li className="text-sm text-slate-400">No terms yet.</li>}
-        </ul>
-        <div className="space-y-2">
-          <select value={termSession} onChange={(e) => setTermSession(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
-            <option value="">Select session…</option>
-            {sessions.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          <div className="flex gap-2">
-            <input value={newTerm} onChange={(e) => setNewTerm(e.target.value)} placeholder="e.g. First Term"
-              className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm" />
+            <div>
+              <label className="mb-1 block text-sm font-medium">
+                Current Session
+              </label>
+
+              <select
+                value={selectedSession}
+                onChange={(e)=>setSelectedSession(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              >
+                <option value="">
+                  Select session
+                </option>
+
+                {sessions.map((s)=>(
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+
+              </select>
+
+            </div>
+
+
+            <div>
+
+              <label className="mb-1 block text-sm font-medium">
+                Current Term
+              </label>
+
+              <select
+                value={selectedTerm}
+                onChange={(e)=>setSelectedTerm(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              >
+
+                <option value="">
+                  Select term
+                </option>
+
+                {terms
+                  .filter(
+                    (t)=>
+                      !selectedSession ||
+                      t.session_id === selectedSession
+                  )
+                  .map((t)=>(
+
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+
+                  ))}
+
+              </select>
+
+            </div>
+
+
             <Button
-              onClick={async () => { if (!newTerm || !termSession) return; await createTerm(schoolId, termSession, newTerm); setNewTerm(""); onChanged(); }}
+              onClick={saveSelection}
+              disabled={saving}
             >
-              Add
+              {saving ? "Saving..." : "Save Selection"}
             </Button>
+
+
           </div>
-        </div>
-      </Card>
+
+        </Card>
+
+      )}
+
     </div>
   );
 }
