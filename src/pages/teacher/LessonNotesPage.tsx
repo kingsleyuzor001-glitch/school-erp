@@ -1,272 +1,379 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import {
+  listMyClasses,
+  listClasses,
+  listSubjects
+} from "../../services/academic";
+import {
   listLessonNotes,
-  uploadLessonNote,
   getSignedNoteUrl,
   LessonNote
 } from "../../services/lessonNotes";
-import { listClasses, listSubjects } from "../../services/academic";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 
 export default function LessonNotesPage() {
   const { profile } = useAuth();
+
   const [notes, setNotes] = useState<LessonNote[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
-  const [showForm, setShowForm] = useState(false);
+
+  const [classId, setClassId] = useState("");
+  const [subjectId, setSubjectId] = useState("");
+  const [week, setWeek] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [openingId, setOpeningId] = useState<string | null>(null);
 
-  async function load() {
+  async function loadNotes() {
+    if (!profile) return;
+
     setLoading(true);
 
     try {
-      const [n, c, sub] = await Promise.all([
-        listLessonNotes(),
-        listClasses(),
-        listSubjects()
+      const classesPromise =
+        profile.role === "teacher"
+          ? listMyClasses()
+          : listClasses();
+
+      const [
+        availableClasses,
+        allSubjects,
+        lessonNotes
+      ] = await Promise.all([
+        classesPromise,
+        listSubjects(),
+        listLessonNotes(
+          classId || undefined,
+          subjectId || undefined
+        )
       ]);
 
-      setNotes(n);
-      setClasses(c);
-      setSubjects(sub);
+      setClasses(availableClasses);
+      setSubjects(allSubjects);
+      setNotes(lessonNotes);
     } catch (error) {
-      console.error("Failed to load lesson notes:", error);
+      console.error(
+        "Failed to load lesson notes:",
+        error
+      );
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
-  }, []);
+    if (profile) {
+      loadNotes();
+    }
+  }, [
+    classId,
+    subjectId,
+    profile?.role
+  ]);
 
   async function openNote(note: LessonNote) {
     if (!note.file_url) {
-      alert("This lesson note does not have a file attached.");
+      alert(
+        "This lesson note does not have a file attached."
+      );
       return;
     }
 
     try {
       setOpeningId(note.id);
 
-      const signedUrl = await getSignedNoteUrl(note.file_url);
+      const signedUrl =
+        await getSignedNoteUrl(note.file_url);
 
-      window.open(signedUrl, "_blank", "noopener,noreferrer");
+      window.open(
+        signedUrl,
+        "_blank",
+        "noopener,noreferrer"
+      );
     } catch (error) {
-      console.error("Failed to open lesson note:", error);
-      alert("Unable to open this lesson note. Please try again.");
+      console.error(
+        "Failed to open lesson note:",
+        error
+      );
+
+      alert(
+        "Unable to open this lesson note. Please try again."
+      );
     } finally {
       setOpeningId(null);
     }
   }
 
-  return (
-    <div className="space-y-4 p-4 sm:p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-xl font-bold">Lesson Notes</h1>
-          <p className="text-sm text-slate-500">
-            Shared platform-wide, organized by class, subject, and week.
-          </p>
-        </div>
-
-        {profile?.role === "super_admin" && (
-          <Button onClick={() => setShowForm((v) => !v)}>
-            {showForm ? "Close" : "Upload note"}
-          </Button>
-        )}
-      </div>
-
-      {showForm && profile && (
-        <UploadForm
-          teacherId={profile.id}
-          classes={classes}
-          subjects={subjects}
-          onUploaded={() => {
-            setShowForm(false);
-            load();
-          }}
-        />
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {loading && (
-          <p className="text-sm text-slate-400">
-            Loading…
-          </p>
-        )}
-
-        {!loading && notes.length === 0 && (
-          <p className="text-sm text-slate-400">
-            No lesson notes yet.
-          </p>
-        )}
-
-        {notes.map((n) => (
-          <Card key={n.id}>
-            <p className="font-medium">{n.title}</p>
-
-            <p className="mt-1 text-xs text-slate-500">
-              Week {n.week ?? "—"} · {n.file_type || "File"}
-            </p>
-
-            <p className="mt-2 text-xs text-slate-400">
-              {new Date(n.created_at).toLocaleDateString()}
-            </p>
-
-            <div className="mt-4">
-              <Button
-                type="button"
-                onClick={() => openNote(n)}
-                loading={openingId === n.id}
-                className="w-full cursor-pointer"
-              >
-                {openingId === n.id ? "Opening…" : "Open lesson note"}
-              </Button>
-            </div>
-          </Card>
-        ))}
-      </div>
-    </div>
+  const selectedClass = classes.find(
+    (item) => item.id === classId
   );
-}
 
-function UploadForm({
-  teacherId,
-  classes,
-  subjects,
-  onUploaded
-}: {
-  teacherId: string;
-  classes: any[];
-  subjects: any[];
-  onUploaded: () => void;
-}) {
-  const [form, setForm] = useState({
-    classId: "",
-    subjectId: "",
-    week: "1",
-    title: ""
-  });
+  const selectedSubject = subjects.find(
+    (item) => item.id === subjectId
+  );
 
-  const [file, setFile] = useState<File | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (!file) return;
-
-    setSaving(true);
-    setError(null);
-
-    const { error } = await uploadLessonNote({
-      teacherId,
-      classId: form.classId,
-      subjectId: form.subjectId,
-      week: Number(form.week),
-      title: form.title,
-      file
-    });
-
-    setSaving(false);
-
-    if (error) {
-      setError(error);
-      return;
+  const visibleNotes = useMemo(() => {
+    if (!week) {
+      return notes;
     }
 
-    onUploaded();
-  }
+    return notes.filter(
+      (note) => String(note.week ?? "") === week
+    );
+  }, [notes, week]);
+
+  const weekNumbers = useMemo(() => {
+    return Array.from(
+      new Set(
+        notes
+          .map((note) => note.week)
+          .filter(
+            (value): value is number =>
+              typeof value === "number"
+          )
+      )
+    ).sort((a, b) => a - b);
+  }, [notes]);
 
   return (
-    <Card>
-      <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
-        <input
-          required
-          placeholder="Title"
-          value={form.title}
-          onChange={(e) =>
-            setForm({ ...form, title: e.target.value })
-          }
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2"
-        />
+    <div className="space-y-5 p-4 sm:p-6">
+      <div>
+        <h1 className="font-display text-xl font-bold">
+          Lesson Notes
+        </h1>
 
-        <select
-          required
-          value={form.classId}
-          onChange={(e) =>
-            setForm({ ...form, classId: e.target.value })
-          }
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        >
-          <option value="">Class…</option>
+        <p className="mt-1 text-sm text-slate-500">
+          Access the shared curriculum for the classes
+          available to you.
+        </p>
+      </div>
 
-          {classes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-              {c.arm ? ` ${c.arm}` : ""}
-            </option>
-          ))}
-        </select>
+      <Card>
+        <div className="grid gap-3 md:grid-cols-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium uppercase text-slate-500">
+              Class
+            </label>
 
-        <select
-          required
-          value={form.subjectId}
-          onChange={(e) =>
-            setForm({ ...form, subjectId: e.target.value })
-          }
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        >
-          <option value="">Subject…</option>
+            <select
+              value={classId}
+              onChange={(e) => {
+                setClassId(e.target.value);
+                setWeek("");
+              }}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">
+                Select class…
+              </option>
 
-          {subjects.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+              {classes.map((item) => (
+                <option
+                  key={item.id}
+                  value={item.id}
+                >
+                  {item.name}
+                  {item.arm
+                    ? ` ${item.arm}`
+                    : ""}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <input
-          type="number"
-          min={1}
-          max={16}
-          value={form.week}
-          onChange={(e) =>
-            setForm({ ...form, week: e.target.value })
-          }
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          placeholder="Week"
-        />
+          <div>
+            <label className="mb-1 block text-xs font-medium uppercase text-slate-500">
+              Subject
+            </label>
 
-        <input
-          required
-          type="file"
-          accept=".pdf,.doc,.docx,image/*"
-          onChange={(e) =>
-            setFile(e.target.files?.[0] ?? null)
-          }
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        />
+            <select
+              value={subjectId}
+              onChange={(e) => {
+                setSubjectId(e.target.value);
+                setWeek("");
+              }}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">
+                Select subject…
+              </option>
 
-        {error && (
-          <p className="text-sm text-rose-600 sm:col-span-2">
-            {error}
-          </p>
-        )}
+              {subjects.map((item) => (
+                <option
+                  key={item.id}
+                  value={item.id}
+                >
+                  {item.name}
+                  {item.code
+                    ? ` (${item.code})`
+                    : ""}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <Button
-          type="submit"
-          loading={saving}
-          className="sm:col-span-2"
-        >
-          Upload
-        </Button>
-      </form>
-    </Card>
+          <div>
+            <label className="mb-1 block text-xs font-medium uppercase text-slate-500">
+              Week
+            </label>
+
+            <select
+              value={week}
+              onChange={(e) =>
+                setWeek(e.target.value)
+              }
+              disabled={!notes.length}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
+            >
+              <option value="">
+                All weeks
+              </option>
+
+              {weekNumbers.map((value) => (
+                <option
+                  key={value}
+                  value={String(value)}
+                >
+                  Week {value}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {selectedClass &&
+          selectedSubject && (
+            <div className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+              <strong>
+                {selectedClass.name}
+                {selectedClass.arm
+                  ? ` ${selectedClass.arm}`
+                  : ""}
+              </strong>{" "}
+              —{" "}
+              <strong>
+                {selectedSubject.name}
+              </strong>
+            </div>
+          )}
+      </Card>
+
+      {!classId || !subjectId ? (
+        <Card>
+          <div className="py-8 text-center">
+            <p className="font-medium text-slate-700">
+              Select a class and subject
+            </p>
+
+            <p className="mt-1 text-sm text-slate-400">
+              Choose the curriculum you want to view.
+            </p>
+          </div>
+        </Card>
+      ) : (
+        <Card>
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-display text-base font-semibold">
+                {selectedSubject?.name ||
+                  "Lesson Notes"}
+              </h2>
+
+              <p className="text-xs text-slate-500">
+                {visibleNotes.length} lesson note
+                {visibleNotes.length === 1
+                  ? ""
+                  : "s"}
+                {week
+                  ? ` · Week ${week}`
+                  : ""}
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              onClick={loadNotes}
+              disabled={loading}
+            >
+              {loading
+                ? "Refreshing…"
+                : "Refresh"}
+            </Button>
+          </div>
+
+          {loading ? (
+            <p className="py-6 text-sm text-slate-400">
+              Loading lesson notes…
+            </p>
+          ) : visibleNotes.length === 0 ? (
+            <div className="rounded-lg bg-slate-50 px-4 py-8 text-center">
+              <p className="font-medium text-slate-700">
+                No lesson notes found
+              </p>
+
+              <p className="mt-1 text-sm text-slate-400">
+                There are no uploaded notes for this
+                class and subject yet.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {visibleNotes.map((note) => (
+                <div
+                  key={note.id}
+                  className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-800">
+                      {note.title}
+                    </p>
+
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                      <span>
+                        Week {note.week ?? "—"}
+                      </span>
+
+                      <span>
+                        {note.file_type ||
+                          "File"}
+                      </span>
+
+                      <span>
+                        {new Date(
+                          note.created_at
+                        ).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    onClick={() =>
+                      openNote(note)
+                    }
+                    loading={
+                      openingId === note.id
+                    }
+                    className="w-full sm:w-auto"
+                  >
+                    {openingId === note.id
+                      ? "Opening…"
+                      : "Open lesson note"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      <p className="text-xs text-slate-400">
+        Lesson notes are provided from the central curriculum
+        library and are available to your school staff.
+      </p>
+    </div>
   );
 }
