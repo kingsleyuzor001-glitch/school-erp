@@ -128,16 +128,13 @@ function ClassesPanel({
     setSavingId(editingId);
 
     try {
-      const result = await updateClass(
+      await updateClass(
         editingId,
-        editingName.trim(),
-        editingArm.trim()
+        {
+          name: editingName.trim(),
+          arm: editingArm.trim() || undefined
+        }
       );
-
-      if (result.error) {
-        alert(result.error.message);
-        return;
-      }
 
       cancelEdit();
       await onChanged();
@@ -158,12 +155,7 @@ function ClassesPanel({
     setDeletingId(item.id);
 
     try {
-      const result = await deleteClass(item.id);
-
-      if (result.error) {
-        alert(result.error.message);
-        return;
-      }
+      await deleteClass(item.id);
 
       await onChanged();
     } finally {
@@ -314,15 +306,10 @@ function ClassesPanel({
           onClick={async () => {
             if (!name.trim()) return;
 
-            const result = await createClass(
-              name.trim(),
-              arm.trim()
-            );
-
-            if (result.error) {
-              alert(result.error.message);
-              return;
-            }
+            await createClass({
+              name: name.trim(),
+              arm: arm.trim() || undefined
+            });
 
             setName("");
             setArm("");
@@ -374,16 +361,13 @@ function SubjectsPanel({
     setSavingId(editingId);
 
     try {
-      const result = await updateSubject(
+      await updateSubject(
         editingId,
-        editingName.trim(),
-        editingCode.trim()
+        {
+          name: editingName.trim(),
+          code: editingCode.trim() || undefined
+        }
       );
-
-      if (result.error) {
-        alert(result.error.message);
-        return;
-      }
 
       cancelEdit();
       await onChanged();
@@ -402,12 +386,7 @@ function SubjectsPanel({
     setDeletingId(item.id);
 
     try {
-      const result = await deleteSubject(item.id);
-
-      if (result.error) {
-        alert(result.error.message);
-        return;
-      }
+      await deleteSubject(item.id);
 
       await onChanged();
     } finally {
@@ -558,15 +537,10 @@ function SubjectsPanel({
           onClick={async () => {
             if (!name.trim()) return;
 
-            const result = await createSubject(
-              name.trim(),
-              code.trim()
-            );
-
-            if (result.error) {
-              alert(result.error.message);
-              return;
-            }
+            await createSubject({
+              name: name.trim(),
+              code: code.trim() || undefined
+            });
 
             setName("");
             setCode("");
@@ -1469,3 +1443,8 @@ function LessonNotesLibrary({
     </div>
   );
 }
+
+
+
+
+

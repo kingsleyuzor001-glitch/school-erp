@@ -6,6 +6,8 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
   super_admin: [
     { label: "Schools", to: "/super-admin/dashboard" },
     { label: "Curriculum", to: "/super-admin/curriculum" },
+{ label: "Sessions", to: "/super-admin/sessions" },
+{ label: "Terms", to: "/super-admin/terms" },
     { label: "Announcements", to: "/announcements" }
   ],
   school_owner: [
@@ -111,6 +113,9 @@ export function AppLayout() {
     </div>
   );
 }
+
+
+
 
 
 
