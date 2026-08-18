@@ -55,7 +55,11 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
     { label: "Announcements", to: "/announcements" },
     { label: "Activities", to: "/activities" }
   ],
-  parent: [
+  staff: [
+    { label: "Attendance", to: "/staff/attendance" },
+    { label: "Announcements", to: "/announcements" },
+    { label: "Activities", to: "/activities" }
+  ],  parent: [
     { label: "My Children", to: "/parent/dashboard" },
     { label: "Report Card", to: "/report-card" },
     { label: "Announcements", to: "/announcements" },
@@ -113,6 +117,7 @@ export function AppLayout() {
     </div>
   );
 }
+
 
 
 

@@ -5,6 +5,7 @@ export type UserRole =
   | "principal"
   | "vice_principal"
   | "teacher"
+  | "staff"
   | "parent"
   | "student";
 
@@ -28,6 +29,7 @@ export const ROLE_HOME: Record<UserRole, string> = {
   principal: "/principal/dashboard",
   vice_principal: "/principal/dashboard",
   teacher: "/teacher/dashboard",
+  staff: "/staff/attendance",
   parent: "/parent/dashboard",
   student: "/student/dashboard"
 };
@@ -40,6 +42,7 @@ export const ROUTE_ACCESS: Record<string, UserRole[]> = {
   "/school-admin": ["school_owner", "school_admin"],
   "/principal": ["principal", "vice_principal"],
   "/teacher": ["teacher"],
+  "/staff": ["staff"],
   "/parent": ["parent"],
   "/student": ["student"]
 };

@@ -31,7 +31,8 @@ import { ApproveResultsPage, PublishResultsPage } from "./pages/shared/ResultsWo
 
 import TeacherDashboardPage from "./pages/teacher/DashboardPage";
 import AttendancePage from "./pages/teacher/AttendancePage";
-import ResultsEntryPage from "./pages/teacher/ResultsEntryPage";
+import ResultsEntryPage from "./pages/teacher/ResultsEntryPage";
+import StaffAttendancePage from "./pages/staff/StaffAttendancePage";
 import LessonNotesPage from "./pages/teacher/LessonNotesPage";
 
 import ParentPortalPage from "./pages/parent/ParentPortalPage";
@@ -117,7 +118,9 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
           <Route path="/teacher/attendance" element={<AttendancePage />} />
-          <Route path="/teacher/results" element={<ResultsEntryPage />} />
+          <Route path="/teacher/results" element={<ResultsEntryPage />} />
+
+          <Route path="/staff/attendance" element={<StaffAttendancePage />} />
         </Route>
       </Route>
 
@@ -170,5 +173,7 @@ export default function App() {
 
 
 
+
+
 
 
