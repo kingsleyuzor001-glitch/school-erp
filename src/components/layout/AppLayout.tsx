@@ -14,6 +14,7 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
     { label: "Dashboard", to: "/school-admin/dashboard" },
     { label: "Students", to: "/school-admin/students" },
     { label: "Staff", to: "/school-admin/staff" },
+    { label: "Staff Attendance", to: "/school-admin/staff-attendance" },
     { label: "Academic Setup", to: "/school-admin/academic-setup" },
     { label: "Lesson Notes", to: "/school-admin/lesson-notes" },
     { label: "Admissions", to: "/school-admin/admissions" },
@@ -29,6 +30,7 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
     { label: "Dashboard", to: "/school-admin/dashboard" },
     { label: "Students", to: "/school-admin/students" },
     { label: "Staff", to: "/school-admin/staff" },
+    { label: "Staff Attendance", to: "/school-admin/staff-attendance" },
     { label: "Academic Setup", to: "/school-admin/academic-setup" },
     { label: "Lesson Notes", to: "/school-admin/lesson-notes" },
     { label: "Admissions", to: "/school-admin/admissions" },
@@ -117,6 +119,7 @@ export function AppLayout() {
     </div>
   );
 }
+
 
 
 

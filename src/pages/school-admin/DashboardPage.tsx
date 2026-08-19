@@ -7,6 +7,7 @@ export default function SchoolAdminDashboardPage() {
       links={[
         { label: "Students", to: "/school-admin/students", description: "Enroll and manage student records." },
         { label: "Staff", to: "/school-admin/staff", description: "Invite and manage teachers and staff." },
+        { label: "Staff Attendance", to: "/school-admin/staff-attendance", description: "View staff clock-in, clock-out, present, and absent records." },
         { label: "Academic Setup", to: "/school-admin/academic-setup", description: "Sessions, terms, classes, subjects." },
         { label: "Admissions", to: "/school-admin/admissions", description: "Review and approve applications." },
         { label: "Publish Results", to: "/school-admin/publish-results", description: "Release approved results to parents and students." },
@@ -20,3 +21,4 @@ export default function SchoolAdminDashboardPage() {
     />
   );
 }
+
