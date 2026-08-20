@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { listMyClasses, listStudentsForAttendance } from "../../services/attendance";
-import { listSubjects, listTerms, listSessions } from "../../services/academic";
+import { listStudentsForAttendance } from "../../services/attendance";
+import { listTerms, listSessions } from "../../services/academic";
 import { getSchoolAcademicSelection } from "../../services/schoolAcademic";
-import { ResultScore, listResultsForEntry, saveScore, submitResults } from "../../services/results";
+import {
+  ResultScore,
+  listMyResultClasses,
+  listMyResultSubjects,
+  listResultsForEntry,
+  saveScore,
+  submitResults
+} from "../../services/results";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 
@@ -18,46 +25,70 @@ export default function ResultsEntryPage() {
   const [classId, setClassId] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [termId, setTermId] = useState("");
-
   const [schoolSessionId, setSchoolSessionId] = useState("");
 
   const [students, setStudents] = useState<any[]>([]);
-  const [scores, setScores] = useState<Record<string, Partial<ResultScore>>>({});
+  const [scores, setScores] =
+    useState<Record<string, Partial<ResultScore>>>({});
 
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  /*
+   * ============================================================
+   * LOAD CLASSES / TERMS / SESSIONS
+   * ============================================================
+   */
+
   useEffect(() => {
     async function load() {
       if (!profile?.school_id) return;
 
-      const [c, s, t, sess, academicSelection] = await Promise.all([
-        listMyClasses(),
-        listSubjects(),
-        listTerms(),
-        listSessions(),
-        getSchoolAcademicSelection(profile.school_id)
-      ]);
+      try {
+        const [
+          resultClasses,
+          termList,
+          sessionList,
+          academicSelection
+        ] = await Promise.all([
+          listMyResultClasses(),
+          listTerms(),
+          listSessions(),
+          getSchoolAcademicSelection(profile.school_id)
+        ]);
 
-      setClasses(c);
-      setSubjects(s);
-      setTerms(t);
-      setSessions(sess);
+        setClasses(resultClasses || []);
+        setTerms(termList || []);
+        setSessions(sessionList || []);
 
-      setSchoolSessionId(
-        academicSelection.current_session_id || ""
-      );
+        setSchoolSessionId(
+          academicSelection.current_session_id || ""
+        );
 
-      if (c.length) {
-        setClassId(c[0].id);
-      }
+        if (resultClasses?.length) {
+          setClassId(resultClasses[0].id);
+        }
 
-      if (academicSelection.current_term_id) {
-        setTermId(academicSelection.current_term_id);
-      } else if (t.length) {
-        setTermId(
-          (t.find((x: any) => x.is_current) ?? t[0]).id
+        if (academicSelection.current_term_id) {
+          setTermId(academicSelection.current_term_id);
+        } else if (termList?.length) {
+          setTermId(
+            (
+              termList.find((x: any) => x.is_current) ??
+              termList[0]
+            ).id
+          );
+        }
+      } catch (error: any) {
+        console.error(
+          "Results entry loading error:",
+          error
+        );
+
+        setMessage(
+          error?.message ||
+            "Unable to load result-entry information."
         );
       }
     }
@@ -65,62 +96,205 @@ export default function ResultsEntryPage() {
     load();
   }, [profile?.school_id]);
 
-  const currentSessionId =
-    schoolSessionId ||
-    sessions[0]?.id ||
-    "";
+  /*
+   * ============================================================
+   * LOAD SUBJECTS FOR SELECTED CLASS
+   *
+   * IMPORTANT:
+   * We intentionally DO NOT use listSubjects().
+   *
+   * The subject dropdown must contain only subjects belonging
+   * to the selected class.
+   * ============================================================
+   */
 
   useEffect(() => {
-    if (!classId || !subjectId || !termId) return;
+    if (!classId) {
+      setSubjects([]);
+      setSubjectId("");
+      return;
+    }
 
-    (async () => {
-      const [studentList, existing] = await Promise.all([
-        listStudentsForAttendance(classId),
-        listResultsForEntry(classId, subjectId, termId)
-      ]);
+    async function loadSubjects() {
+      try {
+        setMessage(null);
 
-      setStudents(studentList);
+        const subjectList =
+          await listMyResultSubjects(classId);
 
-      const byStudent: Record<string, Partial<ResultScore>> = {};
+        setSubjects(subjectList || []);
 
-      studentList.forEach((s: any) => {
-        byStudent[s.id] = {
-          assignment_score: 0,
-          classwork_score: 0,
-          ca_score: 0,
-          exam_score: 0,
-          teacher_comment: ""
-        };
-      });
+        /*
+         * Automatically select the first subject when available.
+         */
+        if (subjectList?.length) {
+          setSubjectId((current) => {
+            const stillExists = subjectList.some(
+              (subject: any) =>
+                subject.id === current
+            );
 
-      existing.forEach((r) => {
-        byStudent[r.student_id] = r;
-      });
+            return stillExists
+              ? current
+              : subjectList[0].id;
+          });
+        } else {
+          setSubjectId("");
+        }
+      } catch (error: any) {
+        console.error(
+          "Result subjects loading error:",
+          error
+        );
 
-      setScores(byStudent);
-      setMessage(null);
-    })();
+        setSubjects([]);
+        setSubjectId("");
+
+        setMessage(
+          error?.message ||
+            "Unable to load subjects for this class."
+        );
+      }
+    }
+
+    loadSubjects();
+  }, [classId]);
+
+  /*
+   * ============================================================
+   * LOAD STUDENTS + EXISTING RESULTS
+   * ============================================================
+   */
+
+  useEffect(() => {
+    if (!classId || !subjectId || !termId) {
+      setStudents([]);
+      setScores({});
+      return;
+    }
+
+    async function loadResults() {
+      try {
+        const [
+          studentList,
+          existing
+        ] = await Promise.all([
+          listStudentsForAttendance(classId),
+          listResultsForEntry(
+            classId,
+            subjectId,
+            termId
+          )
+        ]);
+
+        setStudents(studentList || []);
+
+        const byStudent:
+          Record<string, Partial<ResultScore>> = {};
+
+        (studentList || []).forEach(
+          (student: any) => {
+            byStudent[student.id] = {
+              assignment_score: 0,
+              classwork_score: 0,
+              ca_score: 0,
+              exam_score: 0,
+              teacher_comment: ""
+            };
+          }
+        );
+
+        (existing || []).forEach((result) => {
+          byStudent[result.student_id] = result;
+        });
+
+        setScores(byStudent);
+        setMessage(null);
+      } catch (error: any) {
+        console.error(
+          "Results loading error:",
+          error
+        );
+
+        setStudents([]);
+        setScores({});
+
+        setMessage(
+          error?.message ||
+            "Unable to load results for this class, subject and term."
+        );
+      }
+    }
+
+    loadResults();
   }, [classId, subjectId, termId]);
+
+  /*
+   * ============================================================
+   * UPDATE SCORE
+   * ============================================================
+   */
 
   function update(
     studentId: string,
     field: keyof ResultScore,
     value: string
   ) {
-    setScores((s) => ({
-      ...s,
+    setScores((current) => ({
+      ...current,
       [studentId]: {
-        ...s[studentId],
-        [field]: Number(value) || value
+        ...current[studentId],
+        [field]:
+          field === "teacher_comment"
+            ? value
+            : Number(value) || 0
       }
     }));
   }
 
+  /*
+   * ============================================================
+   * TOTAL
+   * ============================================================
+   */
+
+  function total(score: Partial<ResultScore>) {
+    return (
+      (Number(score.assignment_score) || 0) +
+      (Number(score.classwork_score) || 0) +
+      (Number(score.ca_score) || 0) +
+      (Number(score.exam_score) || 0)
+    );
+  }
+
+  /*
+   * ============================================================
+   * SAVE DRAFT
+   * ============================================================
+   */
+
   async function saveAll() {
     if (!profile?.school_id) return;
 
+    const currentSessionId =
+      schoolSessionId ||
+      sessions[0]?.id ||
+      "";
+
     if (!currentSessionId) {
-      setMessage("No academic session is selected for this school.");
+      setMessage(
+        "No academic session is selected for this school."
+      );
+      return;
+    }
+
+    if (!classId) {
+      setMessage("Please select a class.");
+      return;
+    }
+
+    if (!subjectId) {
+      setMessage("Please select a subject.");
       return;
     }
 
@@ -130,137 +304,288 @@ export default function ResultsEntryPage() {
     }
 
     setSaving(true);
+    setMessage(null);
 
-    for (const [studentId, sc] of Object.entries(scores)) {
-      await saveScore({
-        schoolId: profile.school_id,
+    try {
+      for (const [
         studentId,
-        subjectId,
-        classId,
-        sessionId: currentSessionId,
-        termId,
-        assignment: Number(sc.assignment_score) || 0,
-        classwork: Number(sc.classwork_score) || 0,
-        ca: Number(sc.ca_score) || 0,
-        exam: Number(sc.exam_score) || 0,
-        teacherComment: (sc.teacher_comment as string) || "",
-        enteredBy: profile.id
-      });
-    }
+        score
+      ] of Object.entries(scores)) {
+        const { error } = await saveScore({
+          schoolId: profile.school_id,
+          studentId,
+          subjectId,
+          classId,
+          sessionId: currentSessionId,
+          termId,
 
-    setSaving(false);
-    setMessage("Draft saved.");
+          assignment:
+            Number(score.assignment_score) || 0,
+
+          classwork:
+            Number(score.classwork_score) || 0,
+
+          ca:
+            Number(score.ca_score) || 0,
+
+          exam:
+            Number(score.exam_score) || 0,
+
+          teacherComment:
+            (score.teacher_comment as string) || "",
+
+          enteredBy: profile.id
+        });
+
+        if (error) {
+          throw error;
+        }
+      }
+
+      setMessage("Draft saved successfully.");
+    } catch (error: any) {
+      console.error(
+        "Save results error:",
+        error
+      );
+
+      setMessage(
+        error?.message ||
+          "Unable to save the result draft."
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
+  /*
+   * ============================================================
+   * SUBMIT RESULTS
+   * ============================================================
+   */
+
   async function handleSubmit() {
-    setSubmitting(true);
-
-    await saveAll();
-
-    const { error } = await submitResults(
-      classId,
-      subjectId,
-      termId
-    );
-
-    setSubmitting(false);
-
-    if (error) {
-      setMessage(error.message);
+    if (!classId || !subjectId || !termId) {
+      setMessage(
+        "Please select a class, subject and term before submitting."
+      );
       return;
     }
 
-    setMessage("Submitted for principal approval.");
+    setSubmitting(true);
+    setMessage(null);
+
+    try {
+      await saveAll();
+
+      const { error } = await submitResults(
+        classId,
+        subjectId,
+        termId
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      setMessage(
+        "Results submitted for principal approval."
+      );
+    } catch (error: any) {
+      console.error(
+        "Submit results error:",
+        error
+      );
+
+      setMessage(
+        error?.message ||
+          "Unable to submit results for approval."
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  const total = (sc: Partial<ResultScore>) =>
-    (Number(sc.assignment_score) || 0) +
-    (Number(sc.classwork_score) || 0) +
-    (Number(sc.ca_score) || 0) +
-    (Number(sc.exam_score) || 0);
+  /*
+   * ============================================================
+   * UI
+   * ============================================================
+   */
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
+
       <div>
         <h1 className="font-display text-xl font-bold">
           Enter Results
         </h1>
 
         <p className="text-sm text-slate-500">
-          Scores auto-calculate a total and grade; submit when ready for approval.
+          Class teachers prepare complete results for every
+          subject assigned to their class.
         </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
+
+        {/* CLASS */}
+
         <select
           value={classId}
-          onChange={(e) => setClassId(e.target.value)}
+          onChange={(event) => {
+            setClassId(event.target.value);
+            setSubjectId("");
+            setSubjects([]);
+            setStudents([]);
+            setScores({});
+          }}
           className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
         >
-          <option value="">Class…</option>
+          <option value="">
+            Class…
+          </option>
 
-          {classes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}{c.arm ? ` ${c.arm}` : ""}
+          {classes.map((classRoom) => (
+            <option
+              key={classRoom.id}
+              value={classRoom.id}
+            >
+              {classRoom.name}
+              {classRoom.arm
+                ? ` ${classRoom.arm}`
+                : ""}
             </option>
           ))}
         </select>
+
+        {/* SUBJECT */}
 
         <select
           value={subjectId}
-          onChange={(e) => setSubjectId(e.target.value)}
-          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+          onChange={(event) =>
+            setSubjectId(event.target.value)
+          }
+          disabled={!classId || subjects.length === 0}
+          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:bg-slate-100"
         >
-          <option value="">Subject…</option>
+          <option value="">
+            {classId
+              ? subjects.length
+                ? "Subject…"
+                : "No subjects assigned"
+              : "Select class first"}
+          </option>
 
-          {subjects.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
+          {subjects.map((subject) => (
+            <option
+              key={subject.id}
+              value={subject.id}
+            >
+              {subject.name}
             </option>
           ))}
         </select>
 
+        {/* TERM */}
+
         <select
           value={termId}
-          onChange={(e) => setTermId(e.target.value)}
+          onChange={(event) =>
+            setTermId(event.target.value)
+          }
           className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
         >
-          <option value="">Term…</option>
+          <option value="">
+            Term…
+          </option>
 
-          {terms.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
+          {terms.map((term) => (
+            <option
+              key={term.id}
+              value={term.id}
+            >
+              {term.name}
             </option>
           ))}
         </select>
       </div>
 
+      {/* NO CLASSES */}
+
+      {classes.length === 0 && (
+        <Card className="p-4">
+          <p className="text-sm text-slate-500">
+            No classes are currently assigned to you as a
+            class teacher.
+          </p>
+        </Card>
+      )}
+
+      {/* NO SUBJECTS */}
+
+      {classId &&
+        subjects.length === 0 &&
+        !message && (
+          <Card className="p-4">
+            <p className="text-sm text-slate-500">
+              No subjects are assigned to this class yet.
+            </p>
+          </Card>
+        )}
+
+      {/* STUDENTS / RESULTS */}
+
       {students.length > 0 && (
         <Card className="overflow-x-auto p-0">
+
           <table className="w-full min-w-[720px] text-left text-sm">
+
             <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
-                <th className="px-3 py-3">Student</th>
-                <th className="px-3 py-3">Assign.</th>
-                <th className="px-3 py-3">Classwork</th>
-                <th className="px-3 py-3">CA</th>
-                <th className="px-3 py-3">Exam</th>
-                <th className="px-3 py-3">Total</th>
-                <th className="px-3 py-3">Comment</th>
+                <th className="px-3 py-3">
+                  Student
+                </th>
+
+                <th className="px-3 py-3">
+                  Assign.
+                </th>
+
+                <th className="px-3 py-3">
+                  Classwork
+                </th>
+
+                <th className="px-3 py-3">
+                  CA
+                </th>
+
+                <th className="px-3 py-3">
+                  Exam
+                </th>
+
+                <th className="px-3 py-3">
+                  Total
+                </th>
+
+                <th className="px-3 py-3">
+                  Comment
+                </th>
               </tr>
             </thead>
 
             <tbody>
-              {students.map((s) => {
-                const sc = scores[s.id] || {};
+
+              {students.map((student) => {
+                const score =
+                  scores[student.id] || {};
 
                 return (
                   <tr
-                    key={s.id}
+                    key={student.id}
                     className="border-b border-slate-100 last:border-0"
                   >
+
                     <td className="px-3 py-2 font-medium">
-                      {s.full_name}
+                      {student.full_name}
                     </td>
 
                     {(
@@ -270,18 +595,23 @@ export default function ResultsEntryPage() {
                         "ca_score",
                         "exam_score"
                       ] as const
-                    ).map((f) => (
-                      <td key={f} className="px-3 py-2">
+                    ).map((field) => (
+                      <td
+                        key={field}
+                        className="px-3 py-2"
+                      >
                         <input
                           type="number"
                           min={0}
                           max={100}
-                          value={(sc[f] as number) ?? 0}
-                          onChange={(e) =>
+                          value={
+                            (score[field] as number) ?? 0
+                          }
+                          onChange={(event) =>
                             update(
-                              s.id,
-                              f,
-                              e.target.value
+                              student.id,
+                              field,
+                              event.target.value
                             )
                           }
                           className="w-16 rounded border border-slate-300 px-2 py-1 text-sm"
@@ -290,38 +620,45 @@ export default function ResultsEntryPage() {
                     ))}
 
                     <td className="px-3 py-2 font-semibold">
-                      {total(sc)}
+                      {total(score)}
                     </td>
 
                     <td className="px-3 py-2">
                       <input
                         value={
-                          (sc.teacher_comment as string) ?? ""
+                          (score.teacher_comment as string) ??
+                          ""
                         }
-                        onChange={(e) =>
+                        onChange={(event) =>
                           update(
-                            s.id,
+                            student.id,
                             "teacher_comment",
-                            e.target.value
+                            event.target.value
                           )
                         }
                         className="w-32 rounded border border-slate-300 px-2 py-1 text-sm"
                       />
                     </td>
+
                   </tr>
                 );
               })}
+
             </tbody>
           </table>
         </Card>
       )}
 
+      {/* ACTIONS */}
+
       {students.length > 0 && (
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+
           <Button
             variant="secondary"
             onClick={saveAll}
             loading={saving}
+            disabled={submitting}
           >
             Save draft
           </Button>
@@ -329,6 +666,7 @@ export default function ResultsEntryPage() {
           <Button
             onClick={handleSubmit}
             loading={submitting}
+            disabled={saving}
           >
             Submit for approval
           </Button>
@@ -338,8 +676,17 @@ export default function ResultsEntryPage() {
               {message}
             </span>
           )}
+
         </div>
       )}
+
+      {message &&
+        students.length === 0 && (
+          <p className="text-sm text-slate-500">
+            {message}
+          </p>
+        )}
+
     </div>
   );
 }

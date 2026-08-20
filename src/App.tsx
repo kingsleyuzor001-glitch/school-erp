@@ -25,7 +25,8 @@ import PortalAccessPage from "./pages/school-admin/PortalAccessPage";
 import BrandingPage from "./pages/school-admin/BrandingPage";
 import StudentIdCardsPage from "./pages/school-admin/StudentIdCardsPage";
 import StaffIdCardsPage from "./pages/school-admin/StaffIdCardsPage";
-import StaffAttendanceAdminPage from "./pages/school-admin/StaffAttendanceAdminPage";
+import StaffAttendanceAdminPage from "./pages/school-admin/StaffAttendanceAdminPage";
+import TeacherAssignmentsPage from "./pages/school-admin/TeacherAssignmentsPage";
 
 import PrincipalDashboardPage from "./pages/principal/DashboardPage";
 import { ApproveResultsPage, PublishResultsPage } from "./pages/shared/ResultsWorkflowPage";
@@ -98,7 +99,8 @@ export default function App() {
           <Route path="/school-admin/students" element={<StudentsPage />} />
           <Route path="/school-admin/staff" element={<StaffPage />} />
 
-          <Route path="/school-admin/staff-attendance" element={<StaffAttendanceAdminPage />} />
+          <Route path="/school-admin/staff-attendance" element={<StaffAttendanceAdminPage />} />
+          <Route path="/school-admin/teacher-assignments" element={<TeacherAssignmentsPage />} />
           <Route path="/school-admin/academic-setup" element={<AcademicSetupPage />} />
       <Route path="/school-admin/lesson-notes" element={<LessonNotesPage />} />
           <Route path="/school-admin/admissions" element={<AdmissionsPage />} />
@@ -176,6 +178,9 @@ export default function App() {
 
 
 
+
+
+
 
 
 
