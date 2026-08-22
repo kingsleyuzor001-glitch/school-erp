@@ -29,7 +29,7 @@ export default function ResultsEntryPage() {
 
   const [students, setStudents] = useState<any[]>([]);
   const [scores, setScores] =
-    useState<Record<string, Partial<ResultScore> & { assignment_score?: number | null; classwork_score?: number | null; ca_score?: number | null; exam_score?: number | null }>>({});
+    useState<Record<string, Partial<ResultScore>>>({});
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -201,10 +201,10 @@ export default function ResultsEntryPage() {
         (studentList || []).forEach(
           (student: any) => {
             byStudent[student.id] = {
-              assignment_score: null,
-              classwork_score: null,
-              ca_score: null,
-              exam_score: null,
+              assignment_score: 0,
+              classwork_score: 0,
+              ca_score: 0,
+              exam_score: 0,
               teacher_comment: "",
               status: "draft"
             };
@@ -258,9 +258,7 @@ export default function ResultsEntryPage() {
         [field]:
           field === "teacher_comment"
             ? value
-            : value === ""
-              ? null
-              : Number(value)
+            : Number(value) || 0
       }
     }));
   }
@@ -379,22 +377,30 @@ export default function ResultsEntryPage() {
             termId,
 
             assignment:
-              score.assignment_score == null
+              score.assignment_score === "" ||
+              score.assignment_score === null ||
+              score.assignment_score === undefined
                 ? null
                 : Number(score.assignment_score),
 
             classwork:
-              score.classwork_score == null
+              score.classwork_score === "" ||
+              score.classwork_score === null ||
+              score.classwork_score === undefined
                 ? null
                 : Number(score.classwork_score),
 
             ca:
-              score.ca_score == null
+              score.ca_score === "" ||
+              score.ca_score === null ||
+              score.ca_score === undefined
                 ? null
                 : Number(score.ca_score),
 
             exam:
-              score.exam_score == null
+              score.exam_score === "" ||
+              score.exam_score === null ||
+              score.exam_score === undefined
                 ? null
                 : Number(score.exam_score),
 
@@ -1000,4 +1006,3 @@ export default function ResultsEntryPage() {
     </div>
   );
 }
-

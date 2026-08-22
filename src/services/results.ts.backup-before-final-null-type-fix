@@ -3,10 +3,10 @@ import { supabase } from "../lib/supabase";
 export interface ResultScore {
   id: string;
   student_id: string;
-  assignment_score: number | null;
-  classwork_score: number | null;
-  ca_score: number | null;
-  exam_score: number | null;
+  assignment_score: number;
+  classwork_score: number;
+  ca_score: number;
+  exam_score: number;
   total_score: number;
   grade: string | null;
   status: "draft" | "submitted" | "approved" | "published";
@@ -230,4 +230,3 @@ export async function listPendingBatches(
 
   return Array.from(seen.values());
 }
-

@@ -3,10 +3,10 @@ import { supabase } from "../lib/supabase";
 export interface ResultScore {
   id: string;
   student_id: string;
-  assignment_score: number | null;
-  classwork_score: number | null;
-  ca_score: number | null;
-  exam_score: number | null;
+  assignment_score: number;
+  classwork_score: number;
+  ca_score: number;
+  exam_score: number;
   total_score: number;
   grade: string | null;
   status: "draft" | "submitted" | "approved" | "published";
@@ -16,10 +16,10 @@ export interface ResultScore {
 export interface ReportCard {
   subjects: {
     subject: string;
-    assignment: number | null;
-    classwork: number | null;
-    ca: number | null;
-    exam: number | null;
+    assignment: number;
+    classwork: number;
+    ca: number;
+    exam: number;
     total: number;
     grade: string;
     teacher_comment: string | null;
@@ -100,10 +100,10 @@ export async function saveScore(input: {
   classId: string;
   sessionId: string;
   termId: string;
-  assignment: number | null;
-  classwork: number | null;
-  ca: number | null;
-  exam: number | null;
+  assignment: number;
+  classwork: number;
+  ca: number;
+  exam: number;
   teacherComment: string;
   enteredBy: string;
 }) {
@@ -230,4 +230,3 @@ export async function listPendingBatches(
 
   return Array.from(seen.values());
 }
-
