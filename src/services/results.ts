@@ -1,208 +1,165 @@
 import { supabase } from "../lib/supabase";
 
 export interface ResultScore {
-  id: string;
-  student_id: string;
-  assignment_score: number | null;
-  classwork_score: number | null;
-  ca_score: number | null;
-  exam_score: number | null;
-  total_score: number;
-  grade: string | null;
-  status: "draft" | "submitted" | "approved" | "published";
-  teacher_comment: string | null;
+id: string;
+student_id: string;
+assignment_score: number | null;
+classwork_score: number | null;
+ca_score: number | null;
+exam_score: number | null;
+total_score: number;
+grade: string | null;
+status: "draft" | "submitted" | "approved" | "published";
+teacher_comment: string | null;
 }
 
 export interface ReportCard {
-  subjects: {
-    subject: string;
-    assignment: number | null;
-    classwork: number | null;
-    ca: number | null;
-    exam: number | null;
-    total: number;
-    grade: string;
-    teacher_comment: string | null;
-    status: string;
-  }[];
-  position: number | null;
-  class_size: number | null;
-  comments: {
-    principal_comment?: string;
-    class_teacher_comment?: string;
-  };
+subjects: {
+subject: string;
+assignment: number | null;
+classwork: number | null;
+ca: number | null;
+exam: number | null;
+total: number;
+grade: string;
+teacher_comment: string | null;
+status: string;
+}[];
+position: number | null;
+class_size: number | null;
+comments: {
+principal_comment?: string;
+class_teacher_comment?: string;
+};
 }
-
-/* ============================================================
-   RESULT ENTRY CLASSES
-   ============================================================ */
 
 export async function listMyResultClasses() {
-  const { data, error } = await supabase.rpc(
-    "get_my_result_classes"
-  );
+const { data, error } = await supabase.rpc(
+"get_my_result_classes"
+);
 
-  if (error) throw error;
+if (error) throw error;
 
-  return data || [];
+return data || [];
 }
-
-/* ============================================================
-   RESULT ENTRY SUBJECTS
-   ============================================================ */
 
 export async function listMyResultSubjects(
-  classId: string
+classId: string
 ) {
-  const { data, error } = await supabase.rpc(
-    "get_my_result_subjects",
-    {
-      p_class_id: classId
-    }
-  );
-
-  if (error) throw error;
-
-  return data || [];
+const { data, error } = await supabase.rpc(
+"get_my_result_subjects",
+{
+p_class_id: classId
 }
+);
 
-/* ============================================================
-   RESULT SCORES
-   ============================================================ */
+if (error) throw error;
+
+return data || [];
+}
 
 export async function listResultsForEntry(
-  classId: string,
-  subjectId: string,
-  termId: string
+classId: string,
+subjectId: string,
+termId: string
 ) {
-  const { data, error } = await supabase
-    .from("result_scores")
-    .select(
-      "id, student_id, assignment_score, classwork_score, ca_score, exam_score, total_score, grade, status, teacher_comment"
-    )
-    .eq("class_id", classId)
-    .eq("subject_id", subjectId)
-    .eq("term_id", termId);
+const { data, error } = await supabase
+.from("result_scores")
+.select(
+"id, student_id, assignment_score, classwork_score, ca_score, exam_score, total_score, grade, status, teacher_comment"
+)
+.eq("class_id", classId)
+.eq("subject_id", subjectId)
+.eq("term_id", termId);
 
-  if (error) throw error;
+if (error) throw error;
 
-  return data as ResultScore[];
+return data as ResultScore[];
 }
-
-/* ============================================================
-   SAVE RESULT SCORE
-   ============================================================ */
 
 export async function saveScore(input: {
-  schoolId: string;
-  studentId: string;
-  subjectId: string;
-  classId: string;
-  sessionId: string;
-  termId: string;
-  assignment: number | null;
-  classwork: number | null;
-  ca: number | null;
-  exam: number | null;
-  teacherComment: string;
-  enteredBy: string;
+schoolId: string;
+studentId: string;
+subjectId: string;
+classId: string;
+sessionId: string;
+termId: string;
+assignment: number | null;
+classwork: number | null;
+ca: number | null;
+exam: number | null;
+teacherComment: string;
+enteredBy: string;
 }) {
-  return supabase
-    .from("result_scores")
-    .upsert(
-      {
-        school_id: input.schoolId,
-        student_id: input.studentId,
-        subject_id: input.subjectId,
-        class_id: input.classId,
-        session_id: input.sessionId,
-        term_id: input.termId,
-        assignment_score: input.assignment,
-        classwork_score: input.classwork,
-        ca_score: input.ca,
-        exam_score: input.exam,
-        teacher_comment: input.teacherComment,
-        entered_by: input.enteredBy,
-        status: "draft"
-      },
-      {
-        onConflict: "student_id,subject_id,term_id"
-      }
-    );
+return supabase
+.from("result_scores")
+.upsert(
+{
+school_id: input.schoolId,
+student_id: input.studentId,
+subject_id: input.subjectId,
+class_id: input.classId,
+session_id: input.sessionId,
+term_id: input.termId,
+assignment_score: input.assignment,
+classwork_score: input.classwork,
+ca_score: input.ca,
+exam_score: input.exam,
+teacher_comment: input.teacherComment,
+entered_by: input.enteredBy,
+status: "draft"
+},
+{
+onConflict: "student_id,subject_id,term_id"
+}
+);
 }
 
-/* ============================================================
-   RESULT WORKFLOW
-   ============================================================ */
-
-/*
- * Submit ALL subjects for the class at once.
- *
- * The database function validates that every active student has
- * a result for every subject assigned to the class before changing
- * anything to "submitted".
- */
 export const submitResults = async (
-  classId: string,
-  termId: string
+classId: string,
+termId: string
 ) =>
-  supabase.rpc("submit_class_results", {
-    p_class_id: classId,
-    p_term_id: termId
-  });
-
-/* ============================================================
-   APPROVE RESULTS
-   ============================================================ */
+supabase.rpc("submit_class_results", {
+p_class_id: classId,
+p_term_id: termId
+});
 
 export const approveResults = async (
-  classId: string,
-  subjectId: string,
-  termId: string
+classId: string,
+subjectId: string,
+termId: string
 ) =>
-  supabase.rpc("approve_results", {
-    p_class_id: classId,
-    p_subject_id: subjectId,
-    p_term_id: termId
-  });
-
-/* ============================================================
-   PUBLISH RESULTS
-   ============================================================ */
+supabase.rpc("approve_results", {
+p_class_id: classId,
+p_subject_id: subjectId,
+p_term_id: termId
+});
 
 export const publishResults = async (
-  classId: string,
-  termId: string
+classId: string,
+termId: string
 ) =>
-  supabase.rpc("publish_results", {
-    p_class_id: classId,
-    p_term_id: termId
-  });
-
-/* ============================================================
-   REPORT CARD
-   ============================================================ */
+supabase.rpc("publish_results", {
+p_class_id: classId,
+p_term_id: termId
+});
 
 export async function getReportCard(
-  studentId: string,
-  termId: string
+studentId: string,
+termId: string
 ): Promise<ReportCard> {
-  const { data, error } = await supabase.rpc(
-    "get_report_card",
-    {
-      p_student_id: studentId,
-      p_term_id: termId
-    }
-  );
-
-  if (error) throw error;
-
-  return data as ReportCard;
+const { data, error } = await supabase.rpc(
+"get_report_card",
+{
+p_student_id: studentId,
+p_term_id: termId
 }
+);
 
-/* ============================================================
-   PENDING RESULT BATCHES
-   ============================================================ */
+if (error) throw error;
+
+return data as ReportCard;
+}
 
 export async function listPendingBatches(
   status: "submitted" | "approved",
@@ -230,4 +187,3 @@ export async function listPendingBatches(
 
   return Array.from(seen.values());
 }
-

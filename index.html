@@ -2,13 +2,74 @@
 <html lang="en" class="h-full">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>School ERP Platform</title>
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+
+    <title>School ERP</title>
+
+    <link
+      rel="icon"
+      id="platform-favicon"
+      type="image/png"
+    />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
   </head>
+
   <body class="h-full bg-slate-50">
     <div id="root" class="h-full"></div>
+
     <script type="module" src="/src/main.tsx"></script>
+
+    <script>
+      (async function () {
+        try {
+          const supabaseUrl =
+            "https://reavtnaafdiquvtpngdf.supabase.co";
+
+          const response = await fetch(
+            supabaseUrl +
+              "/rest/v1/platform_settings?id=eq.00000000-0000-0000-0000-000000000001&select=platform_name,logo_url"
+          );
+
+          if (!response.ok) return;
+
+          const data = await response.json();
+
+          if (!data || !data[0]) return;
+
+          const platformName =
+            data[0].platform_name || "School ERP";
+
+          const logoUrl = data[0].logo_url;
+
+          document.title = platformName;
+
+          if (logoUrl) {
+            const favicon =
+              document.getElementById(
+                "platform-favicon"
+              );
+
+            if (favicon) {
+              favicon.href = logoUrl;
+            }
+          }
+        } catch (error) {
+          console.warn(
+            "Unable to load platform branding.",
+            error
+          );
+        }
+      })();
+    </script>
   </body>
 </html>
