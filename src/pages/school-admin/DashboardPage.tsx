@@ -36,6 +36,16 @@ export default function SchoolAdminDashboardPage() {
           description: "Review and approve applications."
         },
         {
+          label: "Finance",
+          to: "/school-admin/finance",
+          description: "Set class fees, record payments, and track balances."
+        },
+        {
+          label: "View Results",
+          to: "/principal/results",
+          description: "View complete compiled student results and correct result errors or omissions."
+        },
+        {
           label: "Publish Results",
           to: "/school-admin/publish-results",
           description: "Release approved results to parents and students."

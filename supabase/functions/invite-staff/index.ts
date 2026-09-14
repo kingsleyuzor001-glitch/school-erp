@@ -7,18 +7,23 @@
 // one narrow action lives server-side. It re-checks the caller's role
 // itself — it does NOT trust the client, even though the client's own
 // RLS would already block a non-admin from most other things.
+//
+// redirectTo points invited staff at /set-password so they land on a
+// page that actually lets them choose a password, instead of Supabase's
+// default behavior of silently logging them in at the site root with
+// no password ever set.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const APP_URL = "https://school-erp-saas-v2.netlify.app";
 
 Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Missing Authorization header" }, 401);
 
-    // Client bound to the CALLER's token — used only to verify who's asking.
     const callerClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
       global: { headers: { Authorization: authHeader } }
     });
@@ -42,11 +47,11 @@ Deno.serve(async (req) => {
     const allowedRoles = ["school_admin", "principal", "vice_principal", "teacher"];
     if (!allowedRoles.includes(role)) return json({ error: "Invalid role for staff invite" }, 400);
 
-    // Admin client — service role, bypasses RLS. Used only for the two
-    // writes this function is explicitly responsible for.
     const adminClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-    const { data: invited, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(email);
+    const { data: invited, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(email, {
+      redirectTo: `${APP_URL}/set-password`
+    });
     if (inviteErr) return json({ error: inviteErr.message }, 400);
 
     const newUserId = invited.user.id;

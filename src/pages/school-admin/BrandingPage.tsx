@@ -47,6 +47,7 @@ export default function BrandingPage() {
 
   if (!school) return <p className="p-6 text-sm text-slate-400">Loading…</p>;
   const applicationUrl = `${window.location.origin}/apply/${school.slug}`;
+  const cbtUrl = `${window.location.origin}/cbt/${school.slug}`;
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
@@ -98,6 +99,17 @@ export default function BrandingPage() {
         <div className="flex flex-wrap items-center gap-2">
           <code className="rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700">{applicationUrl}</code>
           <Button variant="secondary" onClick={() => { navigator.clipboard.writeText(applicationUrl); setMessage("Link copied."); }}>
+            Copy link
+          </Button>
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="mb-2 font-display text-base font-semibold">CBT student login link</h2>
+        <p className="mb-3 text-sm text-slate-500">Share this with students — they'll need their admission number and PIN to log in.</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <code className="rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700">{cbtUrl}</code>
+          <Button variant="secondary" onClick={() => { navigator.clipboard.writeText(cbtUrl); setMessage("Link copied."); }}>
             Copy link
           </Button>
         </div>

@@ -6,11 +6,17 @@
 // Handles two cases via `kind`:
 //   "parent"  — invite a guardian, link them to an existing student
 //   "student" — give an existing student record its own portal login
+//
+// redirectTo points invited users at /set-password so they land on a
+// page that actually lets them choose a password, instead of Supabase's
+// default behavior of silently logging them in at the site root with
+// no password ever set.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const APP_URL = "https://school-erp-saas-v2.netlify.app";
 
 Deno.serve(async (req) => {
   try {
@@ -35,9 +41,6 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { kind } = body;
 
-    // Confirm the target student actually belongs to the caller's
-    // school before doing anything — the service-role client bypasses
-    // RLS, so this check has to happen explicitly here.
     async function assertStudentInSchool(studentId: string) {
       const { data } = await adminClient.from("students").select("id").eq("id", studentId).eq("school_id", schoolId).single();
       if (!data) throw new Error("Student not found in this school");
@@ -48,7 +51,9 @@ Deno.serve(async (req) => {
       if (!email || !fullName || !studentId) return json({ error: "Missing required fields" }, 400);
       await assertStudentInSchool(studentId);
 
-      const { data: invited, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(email);
+      const { data: invited, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(email, {
+        redirectTo: `${APP_URL}/set-password`
+      });
       if (inviteErr) return json({ error: inviteErr.message }, 400);
       const newUserId = invited.user.id;
 
@@ -83,7 +88,9 @@ Deno.serve(async (req) => {
       const { data: student } = await adminClient.from("students").select("full_name, profile_id").eq("id", studentId).single();
       if (student?.profile_id) return json({ error: "This student already has a portal account" }, 400);
 
-      const { data: invited, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(email);
+      const { data: invited, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(email, {
+        redirectTo: `${APP_URL}/set-password`
+      });
       if (inviteErr) return json({ error: inviteErr.message }, 400);
       const newUserId = invited.user.id;
 
