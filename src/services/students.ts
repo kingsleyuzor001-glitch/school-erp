@@ -49,7 +49,7 @@ export async function createStudent(input: {
   sessionId: string;
   address?: string;
 }) {
-  return supabase.rpc("create_student", {
+  const { data, error } = await supabase.rpc("create_student", {
     p_full_name: input.fullName,
     p_date_of_birth: input.dateOfBirth || null,
     p_gender: input.gender || null,
@@ -57,6 +57,11 @@ export async function createStudent(input: {
     p_session_id: input.sessionId || null,
     p_address: input.address || null
   });
+
+  return {
+    data: data as string | null,
+    error
+  };
 }
 
 export async function updateStudent(input: {

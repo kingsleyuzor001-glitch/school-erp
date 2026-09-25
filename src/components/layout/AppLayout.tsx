@@ -66,7 +66,7 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
   vice_principal: [],
   teacher: [
     { label: "Dashboard", to: "/teacher/dashboard" },
-    { label: "Attendance", to: "/teacher/attendance" },
+    { label: "Staff Attendance", to: "/staff/attendance" },
     { label: "Student Attendance", to: "/teacher/student-attendance" },
     { label: "Results Entry", to: "/teacher/results" },
     { label: "CBT Exams", to: "/school-admin/cbt-exams" },

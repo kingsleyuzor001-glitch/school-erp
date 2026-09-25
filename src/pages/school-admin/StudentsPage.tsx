@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Student,
   listStudents,
@@ -6,6 +6,7 @@ import {
   updateStudent,
   setStudentStatus,
   moveStudent,
+  uploadStudentPassport,
 } from "../../services/students";
 import {
   listClasses,
@@ -13,7 +14,9 @@ import {
   SchoolClass,
   Session,
 } from "../../services/academic";
+import { useAuth } from "../../contexts/AuthContext";
 import { Card } from "../../components/ui/Card";
+import { getSignedPassportUrl } from "../../services/students";
 import { Button } from "../../components/ui/Button";
 import { SearchBar } from "../../components/shared/SearchBar";
 
@@ -179,7 +182,7 @@ export default function StudentsPage() {
                 </td>
 
                 <td className="px-4 py-3 font-medium">
-                  {s.full_name}
+                  <StudentNameWithPhoto student={s} />
                 </td>
 
                 <td className="px-4 py-3 text-slate-500">
@@ -272,6 +275,53 @@ export default function StudentsPage() {
   );
 }
 
+function StudentNameWithPhoto({ student }: { student: Student }) {
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!student.passport_url) {
+      setPhotoUrl(null);
+      return;
+    }
+
+    getSignedPassportUrl(student.passport_url)
+      .then((url) => {
+        if (active) setPhotoUrl(url);
+      })
+      .catch(() => {
+        if (active) setPhotoUrl(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [student.passport_url]);
+
+  return (
+    <div className="flex items-center gap-3">
+      {photoUrl ? (
+        <img
+          src={photoUrl}
+          alt={student.full_name}
+          className="h-10 w-10 rounded-full object-cover border border-slate-200"
+        />
+      ) : (
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-400">
+          {student.full_name
+            .split(" ")
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((part) => part[0]?.toUpperCase())
+            .join("")}
+        </div>
+      )}
+
+      <span>{student.full_name}</span>
+    </div>
+  );
+}
 function NewStudentForm({
   classes,
   sessions,
@@ -281,6 +331,8 @@ function NewStudentForm({
   sessions: Session[];
   onCreated: () => void;
 }) {
+  const { profile } = useAuth();
+
   const [form, setForm] = useState({
     fullName: "",
     dateOfBirth: "",
@@ -290,8 +342,45 @@ function NewStudentForm({
     address: "",
   });
 
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreview(null);
+      return;
+    }
+
+    const url = URL.createObjectURL(photoFile);
+    setPhotoPreview(url);
+
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [photoFile]);
+
+  function handlePhotoChange(file: File | undefined) {
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError("Please select an image file.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Photo must be 5 MB or smaller.");
+      return;
+    }
+
+    setError(null);
+    setPhotoFile(file);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -299,11 +388,39 @@ function NewStudentForm({
     setError(null);
 
     try {
-      const { error } = await createStudent(form);
-
-      if (error) {
-        setError(error.message);
+      if (!profile?.school_id) {
+        setError("Your school profile could not be found.");
         return;
+      }
+
+      const { data: studentId, error: createError } =
+        await createStudent(form);
+
+      if (createError) {
+        setError(createError.message);
+        return;
+      }
+
+      if (!studentId) {
+        setError(
+          "The student was created, but the new student ID could not be obtained."
+        );
+        return;
+      }
+
+      if (photoFile) {
+        const photoResult = await uploadStudentPassport(
+          profile.school_id,
+          studentId,
+          photoFile
+        );
+
+        if (photoResult.error) {
+          setError(
+            `Student was created, but the photo could not be saved: ${photoResult.error}`
+          );
+          return;
+        }
       }
 
       onCreated();
@@ -397,6 +514,84 @@ function NewStudentForm({
           className="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2"
         />
 
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+              {photoPreview ? (
+                <img
+                  src={photoPreview}
+                  alt="Student passport preview"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-xs text-slate-400">
+                  No photo
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-slate-700">
+                Passport photograph
+              </p>
+
+              <p className="text-xs text-slate-500">
+                Upload a clear student photo or capture one with the camera.
+                Maximum size: 5 MB.
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => uploadInputRef.current?.click()}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  Upload photo
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                >
+                  Take photo
+                </button>
+
+                {photoFile && (
+                  <button
+                    type="button"
+                    onClick={() => setPhotoFile(null)}
+                    className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+
+              <input
+                ref={uploadInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) =>
+                  handlePhotoChange(e.target.files?.[0])
+                }
+              />
+
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) =>
+                  handlePhotoChange(e.target.files?.[0])
+                }
+              />
+            </div>
+          </div>
+        </div>
+
         {error && (
           <p className="text-sm text-rose-600 sm:col-span-2">
             {error}
@@ -428,6 +623,8 @@ function EditStudentForm({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { profile } = useAuth();
+
   const [form, setForm] = useState({
     fullName: student.full_name,
     dateOfBirth: student.date_of_birth || "",
@@ -443,8 +640,90 @@ function EditStudentForm({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(
+    null
+  );
+
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadExistingPhoto() {
+      if (!student.passport_url) {
+        setExistingPhotoUrl(null);
+        return;
+      }
+
+      try {
+        const signedUrl = await getSignedPassportUrl(student.passport_url);
+
+        if (active) {
+          setExistingPhotoUrl(signedUrl);
+        }
+      } catch {
+        if (active) {
+          setExistingPhotoUrl(null);
+        }
+      }
+    }
+
+    loadExistingPhoto();
+
+    return () => {
+      active = false;
+    };
+  }, [student.passport_url]);
+
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreview(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(photoFile);
+    setPhotoPreview(objectUrl);
+
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [photoFile]);
+
+  function handlePhotoChange(file?: File) {
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError("Please select a valid image file.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Photo must not be larger than 5 MB.");
+      return;
+    }
+
+    setError(null);
+    setPhotoFile(file);
+  }
+
+  function removeSelectedPhoto() {
+    setPhotoFile(null);
+
+    if (uploadInputRef.current) {
+      uploadInputRef.current.value = "";
+    }
+
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = "";
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+
     setSaving(true);
     setError(null);
 
@@ -467,15 +746,121 @@ function EditStudentForm({
         return;
       }
 
+      if (photoFile) {
+        if (!profile?.school_id) {
+          setError(
+            "Your school information could not be found. Please sign in again."
+          );
+          return;
+        }
+
+        const uploadResult = await uploadStudentPassport(
+          profile.school_id,
+          student.id,
+          photoFile
+        );
+
+        if (uploadResult.error) {
+          setError(
+            `Student information was saved, but the photo upload failed: ${uploadResult.error}`
+          );
+          return;
+        }
+      }
+
       onSaved();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred. Please try again."
+      );
     } finally {
       setSaving(false);
     }
   }
 
+  const displayedPhoto = photoPreview || existingPhotoUrl;
+
   return (
     <Modal title="Edit student" onClose={onClose}>
       <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border-2 border-slate-200 bg-white">
+              {displayedPhoto ? (
+                <img
+                  src={displayedPhoto}
+                  alt={`${student.full_name} passport`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="px-3 text-center text-xs text-slate-400">
+                  No passport photo
+                </span>
+              )}
+            </div>
+
+            <p className="text-center text-sm font-medium text-slate-700">
+              Student passport photo
+            </p>
+
+            <div className="flex flex-wrap justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => uploadInputRef.current?.click()}
+                className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+              >
+                Upload photo
+              </button>
+
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                Take photo
+              </button>
+
+              {photoFile && (
+                <button
+                  type="button"
+                  onClick={removeSelectedPhoto}
+                  className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50"
+                >
+                  Remove new photo
+                </button>
+              )}
+            </div>
+
+            <p className="text-center text-xs text-slate-500">
+              Select an image up to 5 MB. The existing photo will remain
+              unchanged if you do not select a new one.
+            </p>
+
+            <input
+              ref={uploadInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) =>
+                handlePhotoChange(e.target.files?.[0])
+              }
+            />
+
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) =>
+                handlePhotoChange(e.target.files?.[0])
+              }
+            />
+          </div>
+        </div>
+
         <input
           required
           placeholder="Full name"
@@ -604,7 +989,6 @@ function EditStudentForm({
     </Modal>
   );
 }
-
 function MoveStudentForm({
   student,
   classes,
@@ -844,3 +1228,9 @@ function Modal({
     </div>
   );
 }
+
+
+
+
+
+

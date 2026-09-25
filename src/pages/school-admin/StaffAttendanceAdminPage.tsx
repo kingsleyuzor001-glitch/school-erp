@@ -30,6 +30,7 @@ export default function StaffAttendanceAdminPage() {
   const [attendance, setAttendance] = useState<AttendanceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   async function loadAttendance() {
     try {
@@ -99,14 +100,24 @@ export default function StaffAttendanceAdminPage() {
         throw new Error(attendanceError.message);
       }
 
-      setStaff((staffData || []).map((item: any) => ({ ...item, profile: Array.isArray(item.profile) ? item.profile[0] || null : item.profile })) as StaffRow[]);
+      setStaff(
+        (staffData || []).map((item: any) => ({
+          ...item,
+          profile: Array.isArray(item.profile)
+            ? item.profile[0] || null
+            : item.profile
+        })) as StaffRow[]
+      );
+
       setAttendance((attendanceData || []) as AttendanceRow[]);
     } catch (error: any) {
       console.error("Staff attendance admin page error:", error);
+
       setMessage(
         error?.message ||
           "Unable to load staff attendance."
       );
+
       setStaff([]);
       setAttendance([]);
     } finally {
@@ -164,6 +175,195 @@ export default function StaffAttendanceAdminPage() {
     return "Clocked Out";
   }
 
+  async function clockInStaff(staffMember: StaffRow) {
+    try {
+      setActionLoading(`in-${staffMember.id}`);
+      setMessage("");
+
+      const {
+        data: { user },
+        error: userError
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        throw new Error("You are not logged in.");
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("school_id, role")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError || !profile) {
+        throw new Error("Your profile could not be found.");
+      }
+
+      if (
+        profile.role !== "school_owner" &&
+        profile.role !== "school_admin"
+      ) {
+        throw new Error(
+          "You do not have permission to clock staff in."
+        );
+      }
+
+      if (!profile.school_id) {
+        throw new Error("Your account is not linked to a school.");
+      }
+
+      const { data: existing, error: existingError } = await supabase
+        .from("staff_attendance")
+        .select("id, clock_in, clock_out")
+        .eq("school_id", profile.school_id)
+        .eq("staff_id", staffMember.id)
+        .eq("date", date)
+        .maybeSingle();
+
+      if (existingError) {
+        throw new Error(existingError.message);
+      }
+
+      if (existing?.clock_in) {
+        throw new Error(
+          `${staffMember.profile?.full_name || "This staff member"} is already clocked in.`
+        );
+      }
+
+      const now = new Date().toISOString();
+
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from("staff_attendance")
+          .update({
+            clock_in: now,
+            clock_out: null
+          })
+          .eq("id", existing.id);
+
+        if (updateError) {
+          throw new Error(updateError.message);
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from("staff_attendance")
+          .insert({
+            school_id: profile.school_id,
+            staff_id: staffMember.id,
+            clock_in: now,
+            clock_out: null,
+            date
+          });
+
+        if (insertError) {
+          throw new Error(insertError.message);
+        }
+      }
+
+      await loadAttendance();
+      setMessage(
+        `${staffMember.profile?.full_name || "Staff member"} has been clocked in successfully.`
+      );
+    } catch (error: any) {
+      console.error("Admin staff clock-in error:", error);
+
+      setMessage(
+        error?.message ||
+          "Unable to clock staff member in."
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function clockOutStaff(staffMember: StaffRow) {
+    try {
+      setActionLoading(`out-${staffMember.id}`);
+      setMessage("");
+
+      const {
+        data: { user },
+        error: userError
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        throw new Error("You are not logged in.");
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("school_id, role")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError || !profile) {
+        throw new Error("Your profile could not be found.");
+      }
+
+      if (
+        profile.role !== "school_owner" &&
+        profile.role !== "school_admin"
+      ) {
+        throw new Error(
+          "You do not have permission to clock staff out."
+        );
+      }
+
+      if (!profile.school_id) {
+        throw new Error("Your account is not linked to a school.");
+      }
+
+      const { data: existing, error: existingError } = await supabase
+        .from("staff_attendance")
+        .select("id, clock_in, clock_out")
+        .eq("school_id", profile.school_id)
+        .eq("staff_id", staffMember.id)
+        .eq("date", date)
+        .maybeSingle();
+
+      if (existingError) {
+        throw new Error(existingError.message);
+      }
+
+      if (!existing?.clock_in) {
+        throw new Error(
+          `${staffMember.profile?.full_name || "This staff member"} has not been clocked in for this date.`
+        );
+      }
+
+      if (existing.clock_out) {
+        throw new Error(
+          `${staffMember.profile?.full_name || "This staff member"} is already clocked out.`
+        );
+      }
+
+      const { error: updateError } = await supabase
+        .from("staff_attendance")
+        .update({
+          clock_out: new Date().toISOString()
+        })
+        .eq("id", existing.id);
+
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+
+      await loadAttendance();
+      setMessage(
+        `${staffMember.profile?.full_name || "Staff member"} has been clocked out successfully.`
+      );
+    } catch (error: any) {
+      console.error("Admin staff clock-out error:", error);
+
+      setMessage(
+        error?.message ||
+          "Unable to clock staff member out."
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   return (
     <div className="p-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -173,7 +373,7 @@ export default function StaffAttendanceAdminPage() {
           </h1>
 
           <p className="mt-1 text-sm text-slate-500">
-            Monitor daily staff attendance and working status.
+            Monitor and manage daily staff attendance and working status.
           </p>
         </div>
 
@@ -192,7 +392,7 @@ export default function StaffAttendanceAdminPage() {
       </div>
 
       {message && (
-        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700">
           {message}
         </div>
       )}
@@ -291,6 +491,10 @@ export default function StaffAttendanceAdminPage() {
                   <th className="px-5 py-3 font-semibold">
                     Status
                   </th>
+
+                  <th className="px-5 py-3 font-semibold">
+                    Actions
+                  </th>
                 </tr>
               </thead>
 
@@ -298,6 +502,12 @@ export default function StaffAttendanceAdminPage() {
                 {staff.map((item) => {
                   const record = attendanceByStaff.get(item.id);
                   const status = getStatus(item.id);
+
+                  const clockInLoading =
+                    actionLoading === `in-${item.id}`;
+
+                  const clockOutLoading =
+                    actionLoading === `out-${item.id}`;
 
                   return (
                     <tr key={item.id}>
@@ -344,6 +554,39 @@ export default function StaffAttendanceAdminPage() {
                           {status}
                         </span>
                       </td>
+
+                      <td className="px-5 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => clockInStaff(item)}
+                            disabled={
+                              !!record?.clock_in ||
+                              !!actionLoading
+                            }
+                            className="rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {clockInLoading
+                              ? "Clocking In..."
+                              : "Clock In"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => clockOutStaff(item)}
+                            disabled={
+                              !record?.clock_in ||
+                              !!record?.clock_out ||
+                              !!actionLoading
+                            }
+                            className="rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {clockOutLoading
+                              ? "Clocking Out..."
+                              : "Clock Out"}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -355,6 +598,3 @@ export default function StaffAttendanceAdminPage() {
     </div>
   );
 }
-
-
-

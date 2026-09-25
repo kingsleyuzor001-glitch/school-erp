@@ -1,19 +1,29 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { listMyClasses, listStudentsForAttendance, getAttendanceForDate, markAttendance } from "../../services/attendance";
+import {
+  listMyClasses,
+  listStudentsForAttendance,
+  getAttendanceForDate,
+  markAttendance
+} from "../../services/attendance";
 import { listSessions, listTerms } from "../../services/academic";
 import { getSchoolAcademicSelection } from "../../services/schoolAcademic";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import type { AttendanceStatus } from "../../services/types";
 
-const STATUSES: AttendanceStatus[] = ["present", "absent", "late", "excused"];
+const STATUSES: AttendanceStatus[] = [
+  "present",
+  "absent",
+  "late",
+  "excused"
+];
 
 const STATUS_COLOR: Record<AttendanceStatus, string> = {
   present: "bg-emerald-600",
   absent: "bg-rose-600",
   late: "bg-amber-500",
-  excused: "bg-slate-400"
+  excused: "bg-slate-500"
 };
 
 export default function AttendancePage() {
@@ -25,9 +35,15 @@ export default function AttendancePage() {
   const [academicSelection, setAcademicSelection] = useState<any>(null);
 
   const [classId, setClassId] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  );
+
   const [students, setStudents] = useState<any[]>([]);
-  const [marks, setMarks] = useState<Record<string, AttendanceStatus>>({});
+  const [marks, setMarks] = useState<
+    Record<string, AttendanceStatus>
+  >({});
+
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -64,37 +80,51 @@ export default function AttendancePage() {
 
       const initial: Record<string, AttendanceStatus> = {};
 
-      studentList.forEach((s: any) => {
-        initial[s.id] = "present";
+      studentList.forEach((student: any) => {
+        initial[student.id] = "present";
       });
 
-      existing.forEach((e: any) => {
-        initial[e.student_id] = e.status;
+      existing.forEach((entry: any) => {
+        initial[entry.student_id] = entry.status;
       });
 
       setMarks(initial);
       setSaved(false);
     })();
-
   }, [classId, date]);
 
-  const currentSession =
-    sessions.find(
-      (s) => s.id === academicSelection?.current_session_id
-    );
+  const currentSession = sessions.find(
+    (session) =>
+      session.id === academicSelection?.current_session_id
+  );
 
-  const currentTerm =
-    terms.find(
-      (t) => t.id === academicSelection?.current_term_id
-    );
+  const currentTerm = terms.find(
+    (term) =>
+      term.id === academicSelection?.current_term_id
+  );
+
+  function handleStatusChange(
+    studentId: string,
+    status: AttendanceStatus
+  ) {
+    setMarks((currentMarks) => ({
+      ...currentMarks,
+      [studentId]: status
+    }));
+
+    setSaved(false);
+  }
 
   async function handleSave() {
     if (!currentSession || !currentTerm) {
-      alert("Please select academic session and term in School Academic Setup.");
+      alert(
+        "Please select academic session and term in School Academic Setup."
+      );
       return;
     }
 
     setSaving(true);
+    setSaved(false);
 
     const records = Object.entries(marks).map(
       ([student_id, status]) => ({
@@ -136,12 +166,20 @@ export default function AttendancePage() {
       <div className="flex flex-wrap gap-2">
         <select
           value={classId}
-          onChange={(e) => setClassId(e.target.value)}
+          onChange={(event) =>
+            setClassId(event.target.value)
+          }
           className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
         >
-          {classes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}{c.arm ? ` ${c.arm}` : ""}
+          {classes.map((schoolClass) => (
+            <option
+              key={schoolClass.id}
+              value={schoolClass.id}
+            >
+              {schoolClass.name}
+              {schoolClass.arm
+                ? ` ${schoolClass.arm}`
+                : ""}
             </option>
           ))}
         </select>
@@ -149,7 +187,9 @@ export default function AttendancePage() {
         <input
           type="date"
           value={date}
-          onChange={(e) => setDate(e.target.value)}
+          onChange={(event) =>
+            setDate(event.target.value)
+          }
           className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
         />
       </div>
@@ -158,49 +198,69 @@ export default function AttendancePage() {
         <table className="w-full min-w-[500px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
-              <th className="px-4 py-3">Student</th>
-              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">
+                Student
+              </th>
+
+              <th className="px-4 py-3">
+                Status
+              </th>
             </tr>
           </thead>
 
           <tbody>
             {students.length === 0 && (
               <tr>
-                <td colSpan={2} className="px-4 py-6 text-center text-slate-400">
+                <td
+                  colSpan={2}
+                  className="px-4 py-6 text-center text-slate-400"
+                >
                   No students in this class yet.
                 </td>
               </tr>
             )}
 
-            {students.map((s) => (
-              <tr key={s.id} className="border-b border-slate-100 last:border-0">
+            {students.map((student) => (
+              <tr
+                key={student.id}
+                className="border-b border-slate-100 last:border-0"
+              >
                 <td className="px-4 py-3 font-medium">
-                  {s.full_name}
-                  <span className="text-xs text-slate-400">
-                    {s.admission_number}
-                  </span>
+                  <div>
+                    {student.full_name}
+                  </div>
+
+                  <div className="text-xs text-slate-400">
+                    {student.admission_number}
+                  </div>
                 </td>
 
                 <td className="px-4 py-3">
-                  <div className="flex gap-1.5">
-                    {STATUSES.map((st) => (
-                      <button
-                        key={st}
-                        onClick={() =>
-                          setMarks((m) => ({
-                            ...m,
-                            [s.id]: st
-                          }))
-                        }
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize text-white ${
-                          marks[s.id] === st
-                            ? STATUS_COLOR[st]
-                            : "bg-slate-200 text-slate-600"
-                        }`}
-                      >
-                        {st}
-                      </button>
-                    ))}
+                  <div className="flex flex-wrap gap-1.5">
+                    {STATUSES.map((status) => {
+                      const selected =
+                        marks[student.id] === status;
+
+                      return (
+                        <button
+                          type="button"
+                          key={status}
+                          onClick={() =>
+                            handleStatusChange(
+                              student.id,
+                              status
+                            )
+                          }
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize transition ${
+                            selected
+                              ? `${STATUS_COLOR[status]} text-white`
+                              : "bg-slate-200 text-slate-600 hover:bg-slate-300"
+                          }`}
+                        >
+                          {status}
+                        </button>
+                      );
+                    })}
                   </div>
                 </td>
               </tr>
@@ -211,7 +271,11 @@ export default function AttendancePage() {
 
       {students.length > 0 && (
         <div className="flex items-center gap-3">
-          <Button onClick={handleSave} loading={saving}>
+          <Button
+            type="button"
+            onClick={handleSave}
+            loading={saving}
+          >
             Save attendance
           </Button>
 
