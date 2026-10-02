@@ -14,6 +14,7 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
   ],
   school_owner: [
     { label: "Dashboard", to: "/school-admin/dashboard" },
+    { label: "School Pulse", to: "/school-admin/school-pulse" },
     { label: "Students", to: "/school-admin/students" },
     { label: "Staff", to: "/school-admin/staff" },
     { label: "Staff Attendance", to: "/school-admin/staff-attendance" },
@@ -22,9 +23,13 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
     { label: "Academic Setup", to: "/school-admin/academic-setup" },
     { label: "Lesson Notes", to: "/school-admin/lesson-notes" },
     { label: "CBT Exams", to: "/school-admin/cbt-exams" },
+    { label: "Live Stream", to: "/school-admin/live-stream" },
     { label: "CBT PINs", to: "/school-admin/cbt-pins" },
     { label: "Admissions", to: "/school-admin/admissions" },
     { label: "Finance", to: "/school-admin/finance" },
+    { label: "Incidents", to: "/incidents" },
+    { label: "Messages", to: "/messages" },
+    { label: "Meeting Slots", to: "/meeting-slots" },
     { label: "View Results", to: "/principal/results" },
     { label: "Publish Results", to: "/school-admin/publish-results" },
     { label: "Portal Access", to: "/school-admin/portal-access" },
@@ -36,6 +41,7 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
   ],
   school_admin: [
     { label: "Dashboard", to: "/school-admin/dashboard" },
+    { label: "School Pulse", to: "/school-admin/school-pulse" },
     { label: "Students", to: "/school-admin/students" },
     { label: "Staff", to: "/school-admin/staff" },
     { label: "Staff Attendance", to: "/school-admin/staff-attendance" },
@@ -44,9 +50,13 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
     { label: "Academic Setup", to: "/school-admin/academic-setup" },
     { label: "Lesson Notes", to: "/school-admin/lesson-notes" },
     { label: "CBT Exams", to: "/school-admin/cbt-exams" },
+    { label: "Live Stream", to: "/school-admin/live-stream" },
     { label: "CBT PINs", to: "/school-admin/cbt-pins" },
     { label: "Admissions", to: "/school-admin/admissions" },
     { label: "Finance", to: "/school-admin/finance" },
+    { label: "Incidents", to: "/incidents" },
+    { label: "Messages", to: "/messages" },
+    { label: "Meeting Slots", to: "/meeting-slots" },
     { label: "View Results", to: "/principal/results" },
     { label: "Publish Results", to: "/school-admin/publish-results" },
     { label: "Portal Access", to: "/school-admin/portal-access" },
@@ -59,6 +69,9 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
   principal: [
     { label: "Dashboard", to: "/principal/dashboard" },
     { label: "Approve Results", to: "/principal/approve-results" },
+    { label: "Incidents", to: "/incidents" },
+    { label: "Messages", to: "/messages" },
+    { label: "Meeting Slots", to: "/meeting-slots" },
     { label: "Announcements", to: "/announcements" },
     { label: "Activities", to: "/activities" },
     { label: "Report Card", to: "/report-card" }
@@ -70,6 +83,10 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
     { label: "Student Attendance", to: "/teacher/student-attendance" },
     { label: "Results Entry", to: "/teacher/results" },
     { label: "CBT Exams", to: "/school-admin/cbt-exams" },
+    { label: "Live Stream", to: "/school-admin/live-stream" },
+    { label: "Incidents", to: "/incidents" },
+    { label: "Messages", to: "/messages" },
+    { label: "Meeting Slots", to: "/meeting-slots" },
     { label: "Announcements", to: "/announcements" },
     { label: "Activities", to: "/activities" }
   ],
@@ -80,6 +97,8 @@ const NAV: Record<UserRole, { label: string; to: string }[]> = {
   ],
   parent: [
     { label: "My Children", to: "/parent/dashboard" },
+    { label: "Messages", to: "/messages" },
+    { label: "Schedule Meeting", to: "/schedule-meeting" },
     { label: "Report Card", to: "/report-card" },
     { label: "Announcements", to: "/announcements" },
     { label: "Activities", to: "/activities" }
